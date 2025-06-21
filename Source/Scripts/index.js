@@ -109,67 +109,83 @@ Object.entries(topics).forEach(([category, items]) => {
 
 // Match
 document.getElementById('match-button').onclick = async () => {
-    const desiredSex = document.getElementById('desired-sex').value;
-    const selectedTopics = [...document.querySelectorAll('.bg-primary')].map(b => b.textContent);
-    const { data, error } = await supabase.from('match_requests').insert({
-        user_id: session.user.id,
-        desired_sex: desiredSex,
-        topics: selectedTopics.length ? selectedTopics : null
-    }).select();
-    if (error) return alert(error.message);
-    currentMatchRequest = data[0];
-    showPage('loading-page');
-    const interval = setInterval(async () => {
-        const { data: matchId } = await supabase.rpc('find_match', { current_mr_id: currentMatchRequest.id });
-        if (matchId) {
-            clearInterval(interval);
-            await startChat(matchId);
-        }
-    }, 2000);
+  const desiredSex = document.getElementById('desired-sex').value;
+  const selectedTopics = [...document.querySelectorAll('.bg-primary')].map(b => b.textContent);
+  const { data, error } = await supabase.from('match_requests').insert({
+    user_id: session.user.id,
+    desired_sex: desiredSex,
+    topics: selectedTopics.length ? selectedTopics : null
+  }).select();
+  if (error) {
+    console.error('Match request insert error:', error);
+    return alert(error.message);
+  }
+  console.log('Inserted match request:', data);
+  currentMatchRequest = data[0];
+  showPage('loading-page');
+  const interval = setInterval(async () => {
+    const { data: matchId, error: matchError } = await supabase.rpc('find_match', { current_mr_id: currentMatchRequest.id });
+    console.log('Find match result:', { matchId, matchError });
+    if (matchError) {
+      console.error('Find match error:', matchError);
+      clearInterval(interval);
+      alert('Error finding match. Please try again.');
+      await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id);
+      showPage('match-page');
+      return;
+    }
+    if (matchId) {
+      clearInterval(interval);
+      await startChat(matchId);
+    }
+  }, 2000);
 };
 
 // Start Chat
 async function startChat(matchId) {
-    const { data: matchedMr, error: mrError } = await supabase
-        .from('match_requests')
-        .select('user_id')
-        .eq('id', matchId)
-        .single();
-    if (mrError || !matchedMr) {
-        console.error('Failed to fetch matched request:', mrError?.message || 'No data');
-        alert('Error starting chat. Returning to match page.');
-        await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id);
-        showPage('match-page');
-        return;
-    }
-    const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', matchedMr.user_id)
-        .single();
-    if (profileError || !profile) {
-        console.error('Failed to fetch profile:', profileError?.message || 'No data');
-        alert('Error starting chat. Returning to match page.');
-        await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id);
-        showPage('match-page');
-        return;
-    }
-    document.getElementById('matched-display-name').textContent = profile.display_name;
-    document.getElementById('matched-username').textContent = profile.username;
-    document.getElementById('matched-sex').textContent = profile.sex;
-    document.getElementById('matched-state').textContent = profile.state;
-    document.getElementById('matched-age').textContent = profile.age;
+  	console.log('Starting chat with match ID:', matchId);
+  	const { data: matchedMr, error: mrError } = await supabase
+		.from('match_requests')
+		.select('user_id')
+		.eq('id', matchId)
+		.single();
+  	if (mrError || !matchedMr) {
+		console.error('Failed to fetch matched request:', mrError?.message || 'No data');
+		alert('Error starting chat. Returning to match page.');
+		await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id);
+		showPage('match-page');
+		return;
+	}
+	console.log('Matched request:', matchedMr);
+	const { data: profile, error: profileError } = await supabase
+		.from('profiles')
+		.select('*')
+		.eq('id', matchedMr.user_id)
+		.single();
+	if (profileError || !profile) {
+		console.error('Failed to fetch profile:', profileError?.message || 'No data');
+		alert('Error starting chat. Returning to match page.');
+		await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id);
+		showPage('match-page');
+		return;
+	}
+	console.log('Matched profile:', profile);
+	document.getElementById('matched-display-name').textContent = profile.display_name;
+	document.getElementById('matched-username').textContent = profile.username;
+	document.getElementById('matched-sex').textContent = profile.sex;
+	document.getElementById('matched-state').textContent = profile.state;
+	document.getElementById('matched-age').textContent = profile.age;
 
-    const channelName = `chat:${Math.min(currentMatchRequest.id, matchId)}:${Math.max(currentMatchRequest.id, matchId)}`;
-    channel = supabase.channel(channelName);
-    channel.on('broadcast', { event: 'message' }, ({ payload }) => addMessage(payload.text, payload.user_id === session.user.id));
-    channel.on('broadcast', { event: 'user_left' }, () => {
-        alert('The other user has left the chat');
-        endChat();
-        showPage('match-page');
-    });
-    channel.subscribe();
-    showPage('chat-page');
+	const channelName = `chat:${Math.min(currentMatchRequest.id, matchId)}:${Math.max(currentMatchRequest.id, matchId)}`;
+	channel = supabase.channel(channelName);
+	channel.on('broadcast', { event: 'message' }, ({ payload }) => addMessage(payload.text, payload.user_id === session.user.id));
+	channel.on('broadcast', { event: 'user_left' }, () => {
+		alert('The other user has left the chat');
+		endChat();
+		showPage('match-page');
+	});
+	channel.subscribe();
+	showPage('chat-page');
 }
 
 // Add Message
