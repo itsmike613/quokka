@@ -1,4 +1,5 @@
 const supabase = Supabase.createClient('https://tegucnhyeejpjhfsejjx.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlZ3Vjbmh5ZWVqcGpoZnNlamp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA0NjM2ODYsImV4cCI6MjA2NjAzOTY4Nn0.S9eSb_AZ6DwTme4i5AghljcDq1YHfHNC8DE90NP89Kg'); // Replace with your Supabase URL and Anon Key
+console.log('Supabase client initialized:', supabase);
 
 let currentUser = null;
 let currentChatId = null;
