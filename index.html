@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!-- Meta -->
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta content="Yaklo" property="og:title">
+    <meta content="The next big site like Omegle" property="og:description">
+    <meta content="https://itsmike613.github.io/Quokka/" property="og:url">
+    <meta content="https://github.com/itsmike613/Quokka/blob/main/Source/Images/logo.png?raw=true" property="og:image">
+    <meta content="#FDB813" data-react-helmet="true" name="theme-color">
+
+    <!-- Tab -->
+    <link rel="icon" type="image/x-icon" href="Source/Images/logo.png">
+    <title>Quokka</title>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="https://unpkg.com/@webpixels/css/dist/index.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css" />
+    <link rel="stylesheet" href="Source/Styles/index.css">
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+
+<body class="d-flex align-items-center justify-content-center bg-light">
+    <!-- Auth Page -->
+    <div class="w-100 p-7" style="max-width: 400px;" id="page_auth">
+        <form id="create" class="d-block">
+            <h3 class="mb-2">Create Account</h3>
+            <label class="form-label">Display Name</label>
+            <input type="text" class="form-control form-control-sm mb-2" minlength="3" maxlength="16" required>
+            <label class="form-label">Username</label>
+            <input type="text" class="form-control form-control-sm mb-2" minlength="3" maxlength="16" required>
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control form-control-sm mb-2" required>
+            <label class="form-label">Password</label>
+            <input type="password" class="form-control form-control-sm mb-2" required>
+            <label class="form-label">Date of Birth</label>
+            <input type="date" class="form-control form-control-sm mb-2" min="1900-01-01" max="2013-01-01" required>
+            <label class="form-label">Sex</label>
+            <select class="form-select form-select-sm mb-2" required>
+                <option value="" disabled selected>Select Sex</option>
+                <option>Female</option>
+                <option>Male</option>
+            </select>
+            <label class="form-label">State of Residence</label>
+            <select class="form-select form-select-sm mb-2" required>
+                <option value="" disabled selected>Select State</option>
+                <option>Alabama</option>
+                <option>Alaska</option>
+                <option>Arizona</option>
+                <option>Arkansas</option>
+                <option>California</option>
+                <option>Colorado</option>
+                <option>Connecticut</option>
+                <option>Delaware</option>
+                <option>Florida</option>
+                <option>Georgia</option>
+                <option>Hawaii</option>
+                <option>Idaho</option>
+                <option>Illinois</option>
+                <option>Indiana</option>
+                <option>Iowa</option>
+                <option>Kansas</option>
+                <option>Kentucky</option>
+                <option>Louisiana</option>
+                <option>Maine</option>
+                <option>Maryland</option>
+                <option>Massachusetts</option>
+                <option>Michigan</option>
+                <option>Minnesota</option>
+                <option>Mississippi</option>
+                <option>Missouri</option>
+                <option>Montana</option>
+                <option>Nebraska</option>
+                <option>Nevada</option>
+                <option>New Hampshire</option>
+                <option>New Jersey</option>
+                <option>New Mexico</option>
+                <option>New York</option>
+                <option>North Carolina</option>
+                <option>North Dakota</option>
+                <option>Ohio</option>
+                <option>Oklahoma</option>
+                <option>Oregon</option>
+                <option>Pennsylvania</option>
+                <option>Rhode Island</option>
+                <option>South Carolina</option>
+                <option>South Dakota</option>
+                <option>Tennessee</option>
+                <option>Texas</option>
+                <option>Utah</option>
+                <option>Vermont</option>
+                <option>Virginia</option>
+                <option>Washington</option>
+                <option>West Virginia</option>
+                <option>Wisconsin</option>
+                <option>Wyoming</option>
+            </select>
+            <span class="text-sm fw-bold text-danger d-none" id="create_error">Error Messages Here</span>
+            <button class="btn btn-sm btn-dark w-100 mb-2">Create Account</button>
+            <p class="text-center">Already have an account? <span class="text-cyan-700 fw-bold cursor-pointer"
+                    onclick="toggleAuth()">Login</span></p>
+        </form>
+        <form id="login" class="d-none">
+            <h3 class="mb-2">Login</h3>
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control form-control-sm mb-2" required>
+            <label class="form-label">Password</label>
+            <input type="password" class="form-control form-control-sm mb-2" required>
+            <span class="text-sm fw-bold text-danger d-none" id="login_error">Error Messages Here</span>
+            <button class="btn btn-sm btn-dark w-100 mb-2">Login</button>
+            <p class="text-center">Don’t have an account? <span class="text-cyan-700 fw-bold cursor-pointer"
+                    onclick="toggleAuth()">Create Account</span></p>
+        </form>
+    </div>
+
+    <!-- Match Page -->
+    <div class="d-flex align-items-center justify-content-center bg-light py-7 w-100 min-vh-100 d-none" id="page_match">
+        <form id="match" class="d-block w-100" style="max-width: 400px;">
+            <h3 class="mb-2">Match Filters</h3>
+            <label class="form-label">What sex would you like to be matched with?</label>
+            <select class="form-select form-select-sm mb-3" id="preferred_sex" required>
+                <option value="" disabled selected>Select Sex</option>
+                <option>Female</option>
+                <option>Either</option>
+                <option>Male</option>
+            </select>
+            <label class="form-label">What topics would you like to talk about?</label>
+            <div id="topics_container" class="mb-2">
+                <!-- Topics will be dynamically inserted here -->
+            </div>
+            <span class="text-sm fw-bold text-muted d-none" id="match_status">Waiting for match...</span>
+            <button class="btn btn-sm btn-dark w-100 mb-2" id="match_button">Match</button>
+            <p class="text-center"><span class="text-cyan-700 fw-bold cursor-pointer"
+                    onclick="showPage('page_profile')">Profile</span></p>
+        </form>
+    </div>
+
+    <!-- Chat Page -->
+    <div class="d-flex align-items-center justify-content-center min-vh-100 d-none" id="page_chat">
+        <div class="w-100" style="max-width: 400px;">
+            <div class="card mb-4">
+                <div class="card-body py-0">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item d-flex align-items-center">
+                            <div class="me-4">
+                                <div class="avatar rounded"><img src="Source/Images/logo.png" alt="..."></div>
+                            </div>
+                            <div class="flex-fill">
+                                <span class="d-block h6 fw-semibold mb-2" id="match_displayname">Display Name</span>
+                                <h6 class="font-semibold text-xs text-muted text-opacity-70 d-flex gap-3">
+                                    <span class="d-flex align-items-center gap-1"><i class="ph ph-user"></i><span
+                                            id="match_username">Username</span></span>
+                                    <span class="d-flex align-items-center gap-1"><i
+                                            class="ph ph-person-arms-spread"></i><span id="match_sex">Sex</span></span>
+                                    <span class="d-flex align-items-center gap-1"><i
+                                            class="ph ph-map-pin-line"></i><span id="match_state">State</span></span>
+                                    <span class="d-flex align-items-center gap-1"><i class="ph ph-cake"></i><span
+                                            id="match_age">Age</span></span>
+                                </h6>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card mb-4">
+                <div class="card-body py-0">
+                    <div class="overflow-y-auto my-4" style="height: 20rem;">
+                        <div id="chat_messages">
+                            <!-- Messages will be dynamically inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="textarea-autosize p-6">
+                    <textarea id="chat_input" class="form-control border-0 shadow-none p-0" rows="1"
+                        placeholder="Type your message..."></textarea>
+                </div>
+                <div class="d-flex align-items-center px-6 py-3 border-top">
+                    <div class="flex-fill d-flex align-items-center">
+                        <h6 class="fw-bolder text-cyan-700">QUOKKA</h6>
+                    </div>
+                    <div class="text-end">
+                        <div class="hstack gap-5 align-items-center">
+                            <a href="#" class="text-lg text-danger text-muted-hover" id="exit"><i
+                                    class="ph ph-sign-out"></i></a>
+                            <a href="#" class="text-lg text-warning text-muted-hover" id="skip"><i
+                                    class="ph ph-skip-forward"></i></a>
+                            <a href="#" class="text-lg text-success text-muted-hover" id="send"><i
+                                    class="ph ph-paper-plane-right"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Page -->
+    <div class="d-flex align-items-center justify-content-center bg-light py-7 w-100 min-vh-100 d-none"
+        id="page_profile">
+        <form id="profile_form" class="d-block w-100" style="max-width: 400px;">
+            <h3 class="mb-2">Profile</h3>
+            <label class="form-label">Display Name</label>
+            <input type="text" id="profile_display_name" class="form-control form-control-sm mb-2" minlength="3"
+                maxlength="16" required>
+            <label class="form-label">Username</label>
+            <input type="text" id="profile_username" class="form-control form-control-sm mb-2" minlength="3"
+                maxlength="16" required>
+            <span class="text-sm fw-bold text-danger d-none" id="profile_error">Error Messages Here</span>
+            <button class="btn btn-sm btn-dark w-100 mb-2" id="profile_save">Save</button>
+            <button class="btn btn-sm btn-danger w-100 mb-2" id="logout">Logout</button>
+            <p class="text-center"><span class="text-cyan-700 fw-bold cursor-pointer"
+                    onclick="showPage('page_match')">Back to Match</span></p>
+        </form>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.0.0/dist/umd/supabase.min.js"></script>
+    <script src="Source/Scripts/index.js"></script>
+</body>
+
+</html>
