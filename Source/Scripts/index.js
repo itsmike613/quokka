@@ -91,7 +91,9 @@ document.getElementById('login-form').onsubmit = async e => {
 // Generate Topics
 const topicsContainer = document.getElementById('topics-container');
 Object.entries(topics).forEach(([category, items]) => {
-    topicsContainer.innerHTML += `<h5>${category}</h5>`;
+    const categoryHeader = document.createElement('h5');
+    categoryHeader.textContent = category;
+    topicsContainer.appendChild(categoryHeader);
     items.forEach(topic => {
         const badge = document.createElement('span');
         badge.className = 'badge bg-secondary m-1';
@@ -128,8 +130,30 @@ document.getElementById('match-button').onclick = async () => {
 
 // Start Chat
 async function startChat(matchId) {
-    const { data: matchedMr } = await supabase.from('match_requests').select('user_id').eq('id', matchId).single();
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', matchedMr.user_id).single();
+    const { data: matchedMr, error: mrError } = await supabase
+        .from('match_requests')
+        .select('user_id')
+        .eq('id', matchId)
+        .single();
+    if (mrError || !matchedMr) {
+        console.error('Failed to fetch matched request:', mrError?.message || 'No data');
+        alert('Error starting chat. Returning to match page.');
+        await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id);
+        showPage('match-page');
+        return;
+    }
+    const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', matchedMr.user_id)
+        .single();
+    if (profileError || !profile) {
+        console.error('Failed to fetch profile:', profileError?.message || 'No data');
+        alert('Error starting chat. Returning to match page.');
+        await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id);
+        showPage('match-page');
+        return;
+    }
     document.getElementById('matched-display-name').textContent = profile.display_name;
     document.getElementById('matched-username').textContent = profile.username;
     document.getElementById('matched-sex').textContent = profile.sex;
@@ -180,10 +204,25 @@ document.getElementById('exit-button').onclick = async () => {
     showPage('match-page');
 };
 
-function endChat() {
-    supabase.from('match_requests').delete().eq('id', currentMatchRequest.id);
-    channel.unsubscribe();
+async function endChat() {
+    if (currentMatchRequest) {
+        // Delete current user's match request
+        await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id);
+        // Delete matched user's match request if it exists
+        const { data: matchedMr } = await supabase
+            .from('match_requests')
+            .select('matched_with')
+            .eq('id', currentMatchRequest.id)
+            .single();
+        if (matchedMr?.matched_with) {
+            await supabase.from('match_requests').delete().eq('id', matchedMr.matched_with);
+        }
+    }
+    if (channel) {
+        channel.unsubscribe();
+    }
     document.getElementById('chat-messages').innerHTML = '';
+    currentMatchRequest = null;
 }
 
 // Profile
