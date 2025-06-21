@@ -111,6 +111,7 @@ Object.entries(topics).forEach(([category, items]) => {
 document.getElementById('match-button').onclick = async () => {
   const desiredSex = document.getElementById('desired-sex').value;
   const selectedTopics = [...document.querySelectorAll('.bg-primary')].map(b => b.textContent);
+  console.log('Creating match request:', { user_id: session.user.id, desired_sex: desiredSex, topics: selectedTopics });
   const { data, error } = await supabase.from('match_requests').insert({
     user_id: session.user.id,
     desired_sex: desiredSex,
@@ -118,7 +119,7 @@ document.getElementById('match-button').onclick = async () => {
   }).select();
   if (error) {
     console.error('Match request insert error:', error);
-    return alert(error.message);
+    return alert(`Failed to create match request: ${error.message}`);
   }
   console.log('Inserted match request:', data);
   currentMatchRequest = data[0];
