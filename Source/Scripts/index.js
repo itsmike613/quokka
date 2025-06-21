@@ -97,7 +97,10 @@ Object.entries(topics).forEach(([category, items]) => {
         badge.className = 'badge bg-secondary m-1';
         badge.textContent = topic;
         badge.style.cursor = 'pointer';
-        badge.onclick = () => badge.classList.toggle('bg-secondary').classList.toggle('bg-primary');
+        badge.onclick = () => {
+            badge.classList.toggle('bg-secondary');
+            badge.classList.toggle('bg-primary');
+        };
         topicsContainer.appendChild(badge);
     });
 });
@@ -185,7 +188,11 @@ function endChat() {
 
 // Profile
 document.getElementById('profile-button').onclick = async () => {
-    const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+    if (error || !data) {
+        alert('Failed to load profile. Please try again.');
+        return;
+    }
     document.getElementById('profile-display-name').value = data.display_name;
     document.getElementById('profile-username').value = data.username;
     showPage('profile-page');
