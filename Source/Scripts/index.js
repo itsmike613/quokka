@@ -21,7 +21,7 @@ async function init() {
 init();
 
 // Sign Up
-document.getElementById('signup-form').onsubmit = async e => {
+document.getElementById('signup-form').onsubmit = async (e) => {
     e.preventDefault();
     const form = e.target;
     const data = {
@@ -33,16 +33,43 @@ document.getElementById('signup-form').onsubmit = async e => {
         sex: form.sex.value,
         state: form.state.value
     };
-    if (data.display_name.length < 3 || data.display_name.length > 16 || data.username.length < 3 || data.username.length > 16) {
+
+    // Basic input validation
+    if (data.display_name.length < 3 || data.display_name.length > 16 ||
+        data.username.length < 3 || data.username.length > 16) {
         return alert('Display Name and Username must be 3-16 characters');
     }
-    const { data: userData, error } = await supabase.auth.signUp({ email: data.email, password: data.password });
-    if (error) return alert(error.message);
-    const { error: profileError } = await supabase.from('profiles').insert({ id: userData.user.id, ...data });
+
+    // Sign up the user (email and password go to auth.users)
+    const { data: userData, error: signUpError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password
+    });
+
+    if (signUpError) {
+        return alert(signUpError.message);
+    }
+
+    // Insert profile data (excluding email, matching table schema)
+    const profileData = {
+        id: userData.user.id,
+        display_name: data.display_name,
+        username: data.username,
+        age: data.age,
+        sex: data.sex,
+        state: data.state
+    };
+
+    const { error: profileError } = await supabase
+        .from('profiles')
+        .insert(profileData);
+
     if (profileError) {
-        alert(profileError.message);
-        await supabase.auth.admin.deleteUser(userData.user.id);
+        // If profile creation fails, sign out and prompt retry
+        alert(`Failed to create profile: ${profileError.message}. Please try again.`);
+        await supabase.auth.signOut();
     } else {
+        // Success: store session and proceed
         session = userData.session;
         showPage('match-page');
     }
