@@ -19,8 +19,8 @@ const topics = {
 };
 
 function toggleAuth() {
-    document.getElementById('create-form').classList.toggle('d-none');
-    document.getElementById('login-form').classList.toggle('d-none');
+  document.getElementById('create-form').classList.toggle('d-none');
+  document.getElementById('login-form').classList.toggle('d-none');
 }
 
 function showPage(pageId) {
@@ -68,7 +68,7 @@ document.getElementById('create-form').onsubmit = async (e) => {
   };
 
   if (data.display_name.length < 3 || data.display_name.length > 16 ||
-      data.username.length < 3 || data.username.length > 16) {
+    data.username.length < 3 || data.username.length > 16) {
     return alert('Display Name and Username must be 3-16 characters');
   }
 
@@ -242,23 +242,28 @@ async function startChat(matchId) {
   document.getElementById('matched-age').textContent = profile.age;
 
   const channelName = `chat:${Math.min(currentMatchRequest.id, matchId)}:${Math.max(currentMatchRequest.id, matchId)}`;
+  console.log('Joining channel:', channelName);
   channel = supabase.channel(channelName);
-  channel.on('broadcast', { event: 'message' }, ({ payload }) => 
+  channel.on('broadcast', { event: 'message' }, ({ payload }) =>
     addMessage(payload.text, payload.user_id === session.user.id)
   );
   channel.on('broadcast', { event: 'user_left' }, () => {
-  	addMessage(`${profile.username} left the chat.`, false, true);
+    addMessage(`${profile.username} left the chat.`, false, true);
     document.getElementById('message-input').disabled = true;
     document.getElementById('send-button').disabled = true;
   });
-  channel.subscribe();
+  channel.subscribe((status) => {
+    if (status === 'SUBSCRIBED') {
+      console.log('Channel subscribed successfully');
+      document.getElementById('send-button').disabled = false; // Enable sending
+    }
+  });
   showPage('chat-page');
 }
 
 function addMessage(text, isSelf, isSystem = false) {
   const div = document.createElement('div');
   div.classList.add('border-0', 'py-1');
-
   if (isSystem) {
     div.classList.add('d-flex', 'flex-column', 'align-items-end', 'my-2');
     div.innerHTML = `<div class="d-inline-block bg-danger text-white rounded p-2"><div class="text-sm">${text}</div></div>`;
@@ -269,18 +274,20 @@ function addMessage(text, isSelf, isSystem = false) {
     div.classList.add('d-flex', 'flex-column', 'align-items-start', 'my-2');
     div.innerHTML = `<div class="d-inline-block bg-light rounded p-2"><div class="text-sm">${text}</div></div>`;
   }
-
-  document.getElementById('chat-messages').appendChild(div);
+  const chatMessages = document.getElementById('chat-messages');
+  console.log('Appending message:', text);
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll to latest message
 }
 
 document.getElementById('send-button').onclick = () => {
   const input = document.getElementById('message-input');
   if (input.value.trim()) {
     addMessage(input.value, true);
-    channel.send({ 
-      type: 'broadcast', 
-      event: 'message', 
-      payload: { text: input.value, user_id: session.user.id } 
+    channel.send({
+      type: 'broadcast',
+      event: 'message',
+      payload: { text: input.value, user_id: session.user.id }
     });
     input.value = '';
   }
@@ -351,8 +358,8 @@ document.getElementById('profile-form').onsubmit = async e => {
     display_name: form['profile-display-name'].value,
     username: form['profile-username'].value
   };
-  if (data.display_name.length < 3 || data.display_name.length > 16 || 
-      data.username.length < 3 || data.username.length > 16) {
+  if (data.display_name.length < 3 || data.display_name.length > 16 ||
+    data.username.length < 3 || data.username.length > 16) {
     return alert('Display Name and Username must be 3-16 characters');
   }
   const { error } = await supabase.from('profiles').update(data).eq('id', session.user.id);
