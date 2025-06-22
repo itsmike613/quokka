@@ -170,20 +170,18 @@
 
     <!-- Profile Page -->
     <div id="profile-page" class="page" style="display: none;">
-        <div class="container mt-5">
-            <h2>Profile</h2>
-            <form id="profile-form">
-                <div class="mb-3">
-                    <label for="profile-display-name" class="form-label">Display Name</label>
-                    <input type="text" class="form-control" id="profile-display-name">
-                </div>
-                <div class="mb-3">
-                    <label for="profile-username" class="form-label">Username</label>
-                    <input type="text" class="form-control" id="profile-username">
-                </div>
-                <button type="submit" class="btn btn-primary">Save</button>
-            </form>
-            <button id="logout-button" class="btn btn-danger mt-3">Logout</button>
+        <div class="d-flex align-items-center justify-content-center bg-light min-vh-100 w-100">
+            <div class="w-100 p-7" style="max-width: 400px;">
+                <form id="profile-form">
+                    <h3 class="mb-2">Profile</h3>
+                    <label class="form-label">Display Name</label>
+                    <input type="text" class="form-control form-control-sm mb-2" id="profile-display-name">
+                    <label class="form-label">Username</label>
+                    <input type="text" class="form-control form-control-sm mb-2" id="profile-username">
+                    <button type="submit" class="btn btn-sm btn-dark">Save</button>
+                </form>
+                <button class="btn btn-sm btn-danger mw-2" id="logout-button">Profile</button>
+            </div>
         </div>
     </div>
 

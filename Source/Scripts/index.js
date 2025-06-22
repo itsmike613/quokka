@@ -2,8 +2,8 @@ const supabase = window.supabase.createClient('https://kotcxrjnvutpllojtkoo.supa
 let session, channel, currentMatchRequest;
 
 const topics = {
-  'Sports': ['Basketball', 'Soccer', 'Baseball'],
-  'Games': ['Call of Duty', 'Valorant', 'Minecraft']
+  'Sports': ['Basketball', 'Hockey', 'Soccer', 'Swimming'],
+  'Games': ['Call of Duty', 'Valorant', 'Minecraft', 'Roblox']
 };
 
 function toggleAuth() {
