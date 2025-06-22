@@ -251,8 +251,19 @@ async function startChat(matchId) {
 // Add Message
 function addMessage(text, isSelf, isSystem = false) {
   const div = document.createElement('div');
-  div.textContent = text;
-  div.className = `message ${isSystem ? 'system' : isSelf ? 'self' : 'other'}`;
+  div.classList.add('border-0', 'py-1');
+
+  if (isSystem) {
+    div.classList.add('d-flex', 'flex-column', 'align-items-end', 'my-3');
+    div.innerHTML = `<div class="d-inline-block bg-danger text-white rounded p-2"><div class="text-sm">${text}</div></div>`;
+  } else if (isSelf) {
+    div.classList.add('d-flex', 'flex-column', 'align-items-end', 'my-3');
+    div.innerHTML = `<div class="d-inline-block bg-primary text-white rounded p-2"><div class="text-sm">${text}</div></div>`;
+  } else {
+    div.classList.add('d-flex', 'flex-column', 'align-items-start', 'my-3');
+    div.innerHTML = `<div class="d-inline-block bg-light rounded p-2"><div class="text-sm">${text}</div></div>`;
+  }
+
   document.getElementById('chat-messages').appendChild(div);
 }
 
