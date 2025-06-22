@@ -44,11 +44,12 @@ function loadMatchFormSettings() {
 async function init() {
   const { data: { session: s }, error } = await supabase.auth.getSession();
   if (error) {
-    console.error('Error fetching session:', error.message);
-  } else {
-    console.log('Session fetched:', s ? 'Active' : 'None', s);
+    console.error('Session fetch error:', error.message);
+    showPage('auth-page');
+    return;
   }
   session = s;
+  console.log('Session initialized:', s ? 'Active' : 'None');
   showPage(session ? 'match-page' : 'auth-page');
   if (session) loadMatchFormSettings();
 }
@@ -243,19 +244,22 @@ async function startChat(matchId) {
 
   const channelName = `chat:${Math.min(currentMatchRequest.id, matchId)}:${Math.max(currentMatchRequest.id, matchId)}`;
   console.log('Joining channel:', channelName);
+  if (channel) channel.unsubscribe();
   channel = supabase.channel(channelName);
-  channel.on('broadcast', { event: 'message' }, ({ payload }) =>
-    addMessage(payload.text, payload.user_id === session.user.id)
-  );
+  channel.on('broadcast', { event: 'message' }, ({ payload }) => {
+    console.log('Received message:', payload);
+    addMessage(payload.text, payload.user_id === session.user.id);
+  });
   channel.on('broadcast', { event: 'user_left' }, () => {
     addMessage(`${profile.username} left the chat.`, false, true);
     document.getElementById('message-input').disabled = true;
     document.getElementById('send-button').disabled = true;
   });
+  document.getElementById('send-button').disabled = true;
   channel.subscribe((status) => {
     if (status === 'SUBSCRIBED') {
-      console.log('Channel subscribed successfully');
-      document.getElementById('send-button').disabled = false; // Enable sending
+      console.log('Channel subscribed:', channelName);
+      document.getElementById('send-button').disabled = false;
     }
   });
   showPage('chat-page');
@@ -282,12 +286,14 @@ function addMessage(text, isSelf, isSystem = false) {
 
 document.getElementById('send-button').onclick = () => {
   const input = document.getElementById('message-input');
-  if (input.value.trim()) {
-    addMessage(input.value, true);
-    channel.send({
-      type: 'broadcast',
-      event: 'message',
-      payload: { text: input.value, user_id: session.user.id }
+  const text = input.value.trim();
+  if (text && channel) {
+    addMessage(text, true);
+    console.log('Sending message:', { text, user_id: session.user.id });
+    channel.send({ 
+      type: 'broadcast', 
+      event: 'message', 
+      payload: { text, user_id: session.user.id } 
     });
     input.value = '';
   }
@@ -304,6 +310,8 @@ document.getElementById('skip-button').onclick = async () => {
 document.getElementById('exit-button').onclick = async () => {
   if (channel) {
     channel.send({ type: 'broadcast', event: 'user_left' });
+    channel.unsubscribe();
+    channel = null;
   }
   await endChat();
   showPage('match-page');
@@ -312,6 +320,7 @@ document.getElementById('exit-button').onclick = async () => {
 async function endChat() {
   if (!session) {
     console.log('No active session during endChat.');
+    showPage('auth-page');
     return;
   }
   if (currentMatchRequest) {
@@ -330,12 +339,9 @@ async function endChat() {
     } catch (err) {
       console.error('Error during endChat cleanup:', err);
     }
-  }
-  if (channel) {
-    channel.unsubscribe();
+    currentMatchRequest = null;
   }
   document.getElementById('chat-messages').innerHTML = '';
-  currentMatchRequest = null;
   document.getElementById('message-input').disabled = false;
   document.getElementById('send-button').disabled = false;
 }
