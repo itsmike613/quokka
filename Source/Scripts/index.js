@@ -12,11 +12,28 @@ function showPage(pageId) {
   document.getElementById(pageId).style.display = 'block';
 }
 
+// Load match form settings from localStorage
+function loadMatchFormSettings() {
+  const savedSex = localStorage.getItem('desired_sex') || 'Either';
+  document.getElementById('desired-sex').value = savedSex;
+
+  const savedTopics = JSON.parse(localStorage.getItem('selected_topics') || '[]');
+  document.querySelectorAll('.badge').forEach(badge => {
+    if (savedTopics.includes(badge.textContent)) {
+      badge.classList.remove('bg-secondary');
+      badge.classList.add('bg-primary');
+    }
+  });
+}
+
 // Check session on load
 async function init() {
-  const { data: { session: s } } = await supabase.auth.getSession();
+  const { data: { session: s }, error } = await supabase.auth.getSession();
+  if (error) console.error('Session fetch error:', error);
+  console.log('Initial session:', s ? 'Active' : 'None');
   session = s;
   showPage(session ? 'match-page' : 'auth-page');
+  if (session) loadMatchFormSettings();
 }
 init();
 
@@ -34,13 +51,11 @@ document.getElementById('signup-form').onsubmit = async (e) => {
     state: form.state.value
   };
 
-  // Basic input validation
   if (data.display_name.length < 3 || data.display_name.length > 16 ||
       data.username.length < 3 || data.username.length > 16) {
     return alert('Display Name and Username must be 3-16 characters');
   }
 
-  // Sign up the user
   const { data: userData, error: signUpError } = await supabase.auth.signUp({
     email: data.email,
     password: data.password
@@ -50,7 +65,6 @@ document.getElementById('signup-form').onsubmit = async (e) => {
     return alert(signUpError.message);
   }
 
-  // Insert profile data
   const profileData = {
     id: userData.user.id,
     display_name: data.display_name,
@@ -100,23 +114,31 @@ Object.entries(topics).forEach(([category, items]) => {
     badge.onclick = () => {
       badge.classList.toggle('bg-secondary');
       badge.classList.toggle('bg-primary');
+      const selectedTopics = [...document.querySelectorAll('.bg-primary')].map(b => b.textContent);
+      localStorage.setItem('selected_topics', JSON.stringify(selectedTopics));
     };
     topicsContainer.appendChild(badge);
   });
 });
+
+document.getElementById('desired-sex').onchange = () => {
+  localStorage.setItem('desired_sex', document.getElementById('desired-sex').value);
+};
 
 // Match
 document.getElementById('match-button').onclick = async () => {
   const desiredSex = document.getElementById('desired-sex').value;
   const selectedTopics = [...document.querySelectorAll('.bg-primary')].map(b => b.textContent);
 
-  // Delete any existing unmatched match requests for this user
-  await supabase.from('match_requests')
-    .delete()
-    .eq('user_id', session.user.id)
-    .is('matched_with', null);
+  try {
+    await supabase.from('match_requests')
+      .delete()
+      .eq('user_id', session.user.id)
+      .is('matched_with', null);
+  } catch (err) {
+    console.error('Error deleting old match requests:', err);
+  }
 
-  // Insert a new match request
   const { data, error } = await supabase.from('match_requests')
     .insert({
       user_id: session.user.id,
@@ -136,31 +158,44 @@ document.getElementById('match-button').onclick = async () => {
   currentMatchRequest = data[0];
   showPage('loading-page');
 
-  // Poll for a match every 2 seconds
   const interval = setInterval(async () => {
-    const { data: matchId, error: matchError } = await supabase.rpc('find_match', {
-      current_mr_id: currentMatchRequest.id
-    });
-    console.log('Find match result:', { matchId, matchError });
+    try {
+      const { data: matchId, error: matchError } = await supabase.rpc('find_match', {
+        current_mr_id: currentMatchRequest.id
+      });
+      console.log('Find match result:', { matchId, matchError });
 
-    if (matchError) {
-      console.error('Find match error:', matchError);
+      if (matchError) {
+        console.error('Find match error:', matchError);
+        clearInterval(interval);
+        alert('Error finding match. Please try again.');
+        await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id);
+        showPage('match-page');
+        return;
+      }
+
+      if (matchId) {
+        clearInterval(interval);
+        await startChat(matchId);
+      }
+    } catch (err) {
+      console.error('Polling error:', err);
       clearInterval(interval);
-      alert('Error finding match. Please try again.');
+      alert('Unexpected error during matching. Please try again.');
       await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id);
       showPage('match-page');
-      return;
-    }
-
-    if (matchId) {
-      clearInterval(interval);
-      await startChat(matchId);
     }
   }, 2000);
 };
 
 // Start Chat
 async function startChat(matchId) {
+  if (!session) {
+    console.error('No active session. Redirecting to auth page.');
+    alert('Session expired. Please log in again.');
+    showPage('auth-page');
+    return;
+  }
   console.log('Starting chat with match ID:', matchId);
   const { data: matchedMr, error: mrError } = await supabase
     .from('match_requests')
@@ -196,21 +231,23 @@ async function startChat(matchId) {
 
   const channelName = `chat:${Math.min(currentMatchRequest.id, matchId)}:${Math.max(currentMatchRequest.id, matchId)}`;
   channel = supabase.channel(channelName);
-  channel.on('broadcast', { event: 'message' }, ({ payload }) => addMessage(payload.text, payload.user_id === session.user.id));
+  channel.on('broadcast', { event: 'message' }, ({ payload }) => 
+    addMessage(payload.text, payload.user_id === session.user.id)
+  );
   channel.on('broadcast', { event: 'user_left' }, () => {
-    alert('The other user has left the chat');
-    endChat();
-    showPage('match-page');
+    addMessage('The other user has left the chat.', false, true);
+    document.getElementById('message-input').disabled = true;
+    document.getElementById('send-button').disabled = true;
   });
   channel.subscribe();
   showPage('chat-page');
 }
 
 // Add Message
-function addMessage(text, isSelf) {
+function addMessage(text, isSelf, isSystem = false) {
   const div = document.createElement('div');
   div.textContent = text;
-  div.className = `message ${isSelf ? 'self' : 'other'}`;
+  div.className = `message ${isSystem ? 'system' : isSelf ? 'self' : 'other'}`;
   document.getElementById('chat-messages').appendChild(div);
 }
 
@@ -218,7 +255,12 @@ function addMessage(text, isSelf) {
 document.getElementById('send-button').onclick = () => {
   const input = document.getElementById('message-input');
   if (input.value.trim()) {
-    channel.send({ type: 'broadcast', event: 'message', payload: { text: input.value, user_id: session.user.id } });
+    addMessage(input.value, true);
+    channel.send({ 
+      type: 'broadcast', 
+      event: 'message', 
+      payload: { text: input.value, user_id: session.user.id } 
+    });
     input.value = '';
   }
 };
@@ -242,17 +284,25 @@ document.getElementById('exit-button').onclick = async () => {
 };
 
 async function endChat() {
+  if (!session) {
+    console.log('No active session during endChat.');
+    return;
+  }
   if (currentMatchRequest) {
-    // Delete current user's match request
-    await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id);
-    // Delete matched user's match request if it exists
-    const { data: matchedMr } = await supabase
-      .from('match_requests')
-      .select('matched_with')
-      .eq('id', currentMatchRequest.id)
-      .single();
-    if (matchedMr?.matched_with) {
-      await supabase.from('match_requests').delete().eq('id', matchedMr.matched_with);
+    try {
+      await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id);
+      const { data: matchedMr, error: fetchError } = await supabase
+        .from('match_requests')
+        .select('matched_with')
+        .eq('id', currentMatchRequest.id)
+        .single();
+      if (fetchError) {
+        console.error('Error fetching matched request:', fetchError);
+      } else if (matchedMr?.matched_with) {
+        await supabase.from('match_requests').delete().eq('id', matchedMr.matched_with);
+      }
+    } catch (err) {
+      console.error('Error during endChat cleanup:', err);
     }
   }
   if (channel) {
@@ -260,6 +310,8 @@ async function endChat() {
   }
   document.getElementById('chat-messages').innerHTML = '';
   currentMatchRequest = null;
+  document.getElementById('message-input').disabled = false;
+  document.getElementById('send-button').disabled = false;
 }
 
 // Profile
@@ -281,7 +333,8 @@ document.getElementById('profile-form').onsubmit = async e => {
     display_name: form['profile-display-name'].value,
     username: form['profile-username'].value
   };
-  if (data.display_name.length < 3 || data.display_name.length > 16 || data.username.length < 3 || data.username.length > 16) {
+  if (data.display_name.length < 3 || data.display_name.length > 16 || 
+      data.username.length < 3 || data.username.length > 16) {
     return alert('Display Name and Username must be 3-16 characters');
   }
   const { error } = await supabase.from('profiles').update(data).eq('id', session.user.id);
