@@ -254,13 +254,13 @@ function addMessage(text, isSelf, isSystem = false) {
   div.classList.add('border-0', 'py-1');
 
   if (isSystem) {
-    div.classList.add('d-flex', 'flex-column', 'align-items-end', 'my-3');
+    div.classList.add('d-flex', 'flex-column', 'align-items-end', 'my-2');
     div.innerHTML = `<div class="d-inline-block bg-danger text-white rounded p-2"><div class="text-sm">${text}</div></div>`;
   } else if (isSelf) {
-    div.classList.add('d-flex', 'flex-column', 'align-items-end', 'my-3');
+    div.classList.add('d-flex', 'flex-column', 'align-items-end', 'my-2');
     div.innerHTML = `<div class="d-inline-block bg-primary text-white rounded p-2"><div class="text-sm">${text}</div></div>`;
   } else {
-    div.classList.add('d-flex', 'flex-column', 'align-items-start', 'my-3');
+    div.classList.add('d-flex', 'flex-column', 'align-items-start', 'my-2');
     div.innerHTML = `<div class="d-inline-block bg-light rounded p-2"><div class="text-sm">${text}</div></div>`;
   }
 
