@@ -2,26 +2,26 @@
 <html lang="en">
 
 <head>
-	<!-- Meta -->
-	<meta charset="UTF-8">
-	<meta content="width=device-width, initial-scale=1.0" name="viewport">
-	<meta content="Yaklo" property="og:title">
-	<meta content="The next big site like Omegle" property="og:description">
-	<meta content="https://itsmike613.github.io/Quokka/" property="og:url">
-	<meta content="https://github.com/itsmike613/Quokka/blob/main/Source/Images/logo.png?raw=true" property="og:image">
-	<meta content="#FDB813" data-react-helmet="true" name="theme-color">
+    <!-- Meta -->
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta content="Yaklo" property="og:title">
+    <meta content="The next big site like Omegle" property="og:description">
+    <meta content="https://itsmike613.github.io/Quokka/" property="og:url">
+    <meta content="https://github.com/itsmike613/Quokka/blob/main/Source/Images/logo.png?raw=true" property="og:image">
+    <meta content="#FDB813" data-react-helmet="true" name="theme-color">
 
-	<!-- Tab -->
-	<link rel="icon" type="image/x-icon" href="Source/Images/logo.png">
-	<title>Quokka</title>
+    <!-- Tab -->
+    <link rel="icon" type="image/x-icon" href="Source/Images/logo.png">
+    <title>Quokka</title>
 
-	<!-- Styles -->
-	<link rel="stylesheet" href="https://unpkg.com/@webpixels/css/dist/index.css">
-	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css" />
-	<link rel="stylesheet" href="Source/Styles/index.css">
+    <!-- Styles -->
+    <link rel="stylesheet" href="https://unpkg.com/@webpixels/css/dist/index.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css" />
+    <link rel="stylesheet" href="Source/Styles/index.css">
 
-	<!-- Scripts -->
-	<script src="https://unpkg.com/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Scripts -->
+    <script src="https://unpkg.com/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </head>
 
 <body>
@@ -122,25 +122,24 @@
     </div>
 
     <!-- Match Page -->
-    <div id="match-page" class="page" style="display: none;">
-        <div class="container mt-5">
-            <h2>Match Preferences</h2>
-            <div class="mb-3">
-                <label for="desired-sex" class="form-label">Desired Sex</label>
-                <select class="form-select" id="desired-sex">
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Either">Either</option>
-                </select>
-            </div>
-            <div id="topics-container" class="mb-3"></div>
-            <button id="match-button" class="btn btn-primary">Match</button>
-            <button id="profile-button" class="btn btn-secondary ms-2">Profile</button>
+    <div id="match-page" class="page d-flex align-items-center justify-content-center bg-light py-7 w-100 min-vh-100" style="display: none;">
+        <div class="d-block w-100" style="max-width: 400px;">
+            <h3 class="mb-2">Match Filters</h3>
+            <label class="form-label">What sex would you like to be matched with?</label>
+            <select class="form-select form-select-sm mb-3" id="desired-sex" required>
+                <option value="" disabled selected>Select Sex</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Either">Either</option>
+            </select>
+            <div id="topics_container" class="mb-2"></div>
+            <button class="btn btn-sm btn-dark" id="match-button">Match</button>
+            <button class="btn btn-sm btn-secondary mw-2"id="profile-button">Profile</button>
         </div>
     </div>
 
     <!-- Loading Page -->
-    <div id="loading-page" class="page" style="display: none;">
+    <div id="loading-page" class="page bg-light" style="display: none;">
         <div class="container mt-5 text-center">
             <h2>Finding a match...</h2>
             <div class="spinner-border" role="status">
