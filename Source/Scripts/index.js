@@ -115,7 +115,8 @@ document.getElementById('match-button').onclick = async () => {
   const { data, error } = await supabase.from('match_requests').insert({
     user_id: session.user.id,
     desired_sex: desiredSex,
-    topics: selectedTopics.length ? selectedTopics : null
+    topics: selectedTopics.length ? selectedTopics : null,
+    participants: [session.user.id]  // Set participants to current user
   }).select();
   if (error) {
     console.error('Match request insert error:', error);
