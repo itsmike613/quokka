@@ -11,13 +11,11 @@ function toggleAuth() {
     document.getElementById('login-form').classList.toggle('d-none');
 }
 
-// Show specific page
 function showPage(pageId) {
   document.querySelectorAll('.page').forEach(page => page.style.display = 'none');
   document.getElementById(pageId).style.display = 'block';
 }
 
-// Load match form settings from localStorage
 function loadMatchFormSettings() {
   const savedSex = localStorage.getItem('desired_sex') || 'Either';
   document.getElementById('desired-sex').value = savedSex;
@@ -31,7 +29,6 @@ function loadMatchFormSettings() {
   });
 }
 
-// Check session on load
 async function init() {
   const { data: { session: s }, error } = await supabase.auth.getSession();
   if (error) console.error('Session fetch error:', error);
@@ -42,7 +39,6 @@ async function init() {
 }
 init();
 
-// Sign Up
 document.getElementById('create-form').onsubmit = async (e) => {
   e.preventDefault();
   const form = e.target;
@@ -92,7 +88,6 @@ document.getElementById('create-form').onsubmit = async (e) => {
   }
 };
 
-// Login
 document.getElementById('login-form').onsubmit = async e => {
   e.preventDefault();
   const form = e.target;
@@ -105,7 +100,6 @@ document.getElementById('login-form').onsubmit = async e => {
   showPage('match-page');
 };
 
-// Generate Topics
 const topicsContainer = document.getElementById('topics-container');
 Object.entries(topics).forEach(([category, items]) => {
   const categoryHeader = document.createElement('h5');
@@ -130,7 +124,6 @@ document.getElementById('desired-sex').onchange = () => {
   localStorage.setItem('desired_sex', document.getElementById('desired-sex').value);
 };
 
-// Match
 document.getElementById('match-button').onclick = async () => {
   const desiredSex = document.getElementById('desired-sex').value;
   const selectedTopics = [...document.querySelectorAll('.bg-primary')].map(b => b.textContent);
@@ -193,7 +186,6 @@ document.getElementById('match-button').onclick = async () => {
   }, 2000);
 };
 
-// Start Chat
 async function startChat(matchId) {
   if (!session) {
     console.error('No active session. Redirecting to auth page.');
@@ -248,7 +240,6 @@ async function startChat(matchId) {
   showPage('chat-page');
 }
 
-// Add Message
 function addMessage(text, isSelf, isSystem = false) {
   const div = document.createElement('div');
   div.classList.add('border-0', 'py-1');
@@ -267,7 +258,6 @@ function addMessage(text, isSelf, isSystem = false) {
   document.getElementById('chat-messages').appendChild(div);
 }
 
-// Send Message
 document.getElementById('send-button').onclick = () => {
   const input = document.getElementById('message-input');
   if (input.value.trim()) {
@@ -281,7 +271,6 @@ document.getElementById('send-button').onclick = () => {
   }
 };
 
-// Skip
 document.getElementById('skip-button').onclick = async () => {
   if (channel) {
     channel.send({ type: 'broadcast', event: 'user_left' });
@@ -290,7 +279,6 @@ document.getElementById('skip-button').onclick = async () => {
   document.getElementById('match-button').click();
 };
 
-// Exit
 document.getElementById('exit-button').onclick = async () => {
   if (channel) {
     channel.send({ type: 'broadcast', event: 'user_left' });
@@ -330,7 +318,6 @@ async function endChat() {
   document.getElementById('send-button').disabled = false;
 }
 
-// Profile
 document.getElementById('profile-button').onclick = async () => {
   const { data, error } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
   if (error || !data) {
@@ -358,7 +345,6 @@ document.getElementById('profile-form').onsubmit = async e => {
   if (!error) showPage('match-page');
 };
 
-// Logout
 document.getElementById('logout-button').onclick = async () => {
   await supabase.auth.signOut();
   session = null;
