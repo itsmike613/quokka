@@ -111,23 +111,39 @@ Object.entries(topics).forEach(([category, items]) => {
 document.getElementById('match-button').onclick = async () => {
   const desiredSex = document.getElementById('desired-sex').value;
   const selectedTopics = [...document.querySelectorAll('.bg-primary')].map(b => b.textContent);
-  console.log('Creating match request:', { user_id: session.user.id, desired_sex: desiredSex, topics: selectedTopics });
-  const { data, error } = await supabase.from('match_requests').insert({
-    user_id: session.user.id,
-    desired_sex: desiredSex,
-    topics: selectedTopics.length ? selectedTopics : null,
-    participants: [session.user.id]  // Set participants to current user
-  }).select();
+
+  // Delete any existing unmatched match requests for this user
+  await supabase.from('match_requests')
+    .delete()
+    .match({ user_id: session.user.id, matched_with: null });
+
+  // Insert a new match request
+  const { data, error } = await supabase.from('match_requests')
+    .insert({
+      user_id: session.user.id,
+      desired_sex: desiredSex,
+      topics: selectedTopics.length ? selectedTopics : null,
+      participants: [session.user.id]
+    })
+    .select();
+
   if (error) {
     console.error('Match request insert error:', error);
-    return alert(`Failed to create match request: ${error.message}`);
+    alert(`Failed to create match request: ${error.message}`);
+    return;
   }
-  console.log('Inserted match request:', data);
+
+  console.log('Inserted match request:', JSON.stringify(data, null, 2));
   currentMatchRequest = data[0];
   showPage('loading-page');
+
+  // Poll for a match every 2 seconds
   const interval = setInterval(async () => {
-    const { data: matchId, error: matchError } = await supabase.rpc('find_match', { current_mr_id: currentMatchRequest.id });
+    const { data: matchId, error: matchError } = await supabase.rpc('find_match', { 
+      current_mr_id: currentMatchRequest.id 
+    });
     console.log('Find match result:', { matchId, matchError });
+
     if (matchError) {
       console.error('Find match error:', matchError);
       clearInterval(interval);
@@ -136,6 +152,7 @@ document.getElementById('match-button').onclick = async () => {
       showPage('match-page');
       return;
     }
+
     if (matchId) {
       clearInterval(interval);
       await startChat(matchId);
