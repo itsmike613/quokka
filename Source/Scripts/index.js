@@ -240,7 +240,7 @@ async function startChat(matchId) {
     addMessage(payload.text, payload.user_id === session.user.id)
   );
   channel.on('broadcast', { event: 'user_left' }, () => {
-    addMessage('The other user has left the chat.', false, true);
+  	addMessage(`${profile.username} left the chat.`, false, true);
     document.getElementById('message-input').disabled = true;
     document.getElementById('send-button').disabled = true;
   });
