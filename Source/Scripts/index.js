@@ -1,4 +1,16 @@
 const supabase = window.supabase.createClient('https://kotcxrjnvutpllojtkoo.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtvdGN4cmpudnV0cGxsb2p0a29vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA1NTE0MTMsImV4cCI6MjA2NjEyNzQxM30.NcMrLfW6res9fUD-LlL2R1ohSf7lAsQy1h-eSOWcr6k');
+
+supabase.auth.onAuthStateChange((event, newSession) => {
+  console.log('Auth state changed:', event, newSession);
+  if (event === 'SIGNED_IN') {
+    session = newSession;
+    showPage('match-page');
+  } else if (event === 'SIGNED_OUT') {
+    session = null;
+    showPage('auth-page');
+  }
+});
+
 let session, channel, currentMatchRequest;
 
 const topics = {
@@ -31,8 +43,11 @@ function loadMatchFormSettings() {
 
 async function init() {
   const { data: { session: s }, error } = await supabase.auth.getSession();
-  if (error) console.error('Session fetch error:', error);
-  console.log('Initial session:', s ? 'Active' : 'None');
+  if (error) {
+    console.error('Error fetching session:', error.message);
+  } else {
+    console.log('Session fetched:', s ? 'Active' : 'None', s);
+  }
   session = s;
   showPage(session ? 'match-page' : 'auth-page');
   if (session) loadMatchFormSettings();
