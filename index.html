@@ -152,19 +152,70 @@
 
     <!-- Chat Page -->
     <div id="chat-page" class="page" style="display: none;">
-        <div class="container mt-5">
-            <h2>Chat with <span id="matched-display-name"></span></h2>
-            <p>Username: <span id="matched-username"></span></p>
-            <p>Sex: <span id="matched-sex"></span></p>
-            <p>State: <span id="matched-state"></span></p>
-            <p>Age: <span id="matched-age"></span></p>
-            <div id="chat-messages" class="mb-3" style="max-height: 300px; overflow-y: auto;"></div>
-            <div class="input-group mb-3">
-                <input type="text" id="message-input" class="form-control" placeholder="Type your message">
-                <button id="send-button" class="btn btn-primary">Send</button>
+        <div class="d-flex align-items-center justify-content-center bg-light min-vh-100 w-100">
+            <div class="w-100 p-7" style="max-width: 400px;">
+
+
+
+
+
+                <div class="card mb-4">
+                    <div class="card-body py-0">
+                        <div class="list-group list-group-flush">
+                            <div class="list-group-item d-flex align-items-center">
+                                <div class="me-4">
+                                    <div class="avatar rounded"><img src="Source/Images/logo.png" alt="..."></div>
+                                </div>
+                                <div class="flex-fill">
+                                    <span class="d-block h6 fw-semibold mb-2" id="matched-display-name">Display
+                                        Name</span>
+                                    <h6 class="font-semibold text-xs text-muted text-opacity-70 d-flex gap-3">
+                                        <span class="d-flex align-items-center gap-1"><i class="ph ph-user"></i><span
+                                                id="matched-username">Username</span></span>
+                                        <span class="d-flex align-items-center gap-1"><i
+                                                class="ph ph-person-arms-spread"></i><span
+                                                id="matched-sex"></span></span>
+                                        <span class="d-flex align-items-center gap-1"><i
+                                                class="ph ph-map-pin-line"></i><span id="matched-state"></span></span>
+                                        <span class="d-flex align-items-center gap-1"><i class="ph ph-cake"></i><span
+                                                id="matched-age"></span></span>
+                                    </h6>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card mb-4">
+                    <div class="card-body py-0">
+                        <div class="overflow-y-auto my-4" style="height: 20rem;">
+                            <div id="chat-messages">
+                                <!-- Messages will be dynamically inserted here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="textarea-autosize p-6">
+                        <textarea id="message-input" class="form-control border-0 shadow-none p-0" rows="1"
+                            placeholder="Type your message..."></textarea>
+                    </div>
+                    <div class="d-flex align-items-center px-6 py-3 border-top">
+                        <div class="flex-fill d-flex align-items-center">
+                            <h6 class="fw-bolder text-cyan-700">QUOKKA</h6>
+                        </div>
+                        <div class="text-end">
+                            <div class="hstack gap-5 align-items-center">
+                                <a href="#" class="text-lg text-danger text-muted-hover" id="exit-button"><i
+                                        class="ph ph-sign-out"></i></a>
+                                <a href="#" class="text-lg text-warning text-muted-hover" id="skip-button"><i
+                                        class="ph ph-skip-forward"></i></a>
+                                <a href="#" class="text-lg text-success text-muted-hover" id="send-button"><i
+                                        class="ph ph-paper-plane-right"></i></a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <button id="skip-button" class="btn btn-secondary">Skip</button>
-            <button id="exit-button" class="btn btn-danger ms-2">Exit</button>
         </div>
     </div>
 
@@ -173,14 +224,14 @@
         <div class="d-flex align-items-center justify-content-center bg-light min-vh-100 w-100">
             <div class="w-100 p-7" style="max-width: 400px;">
                 <form id="profile-form">
-                    <h3 class="mb-2">Profile</h3>
+                    <h3 class="mb-2">Profile Settings</h3>
                     <label class="form-label">Display Name</label>
                     <input type="text" class="form-control form-control-sm mb-2" id="profile-display-name">
                     <label class="form-label">Username</label>
                     <input type="text" class="form-control form-control-sm mb-2" id="profile-username">
-                    <button type="submit" class="btn btn-sm btn-dark">Save</button>
+                    <button type="submit" class="btn btn-sm btn-dark mb-2">Save</button>
                 </form>
-                <button class="btn btn-sm btn-danger mw-2" id="logout-button">Profile</button>
+                <button class="btn btn-sm btn-danger" id="logout-button">Logout</button>
             </div>
         </div>
     </div>
