@@ -12,8 +12,21 @@ supabase.auth.onAuthStateChange((event, newSession) => {
 async function ensureSession() {
   if (!session || session.expires_at < Date.now() / 1000) {
     const { data: { session: s }, error } = await supabase.auth.getSession();
-    if (error || !s) return false;
-    session = s.expires_at < Date.now() / 1000 ? (await supabase.auth.refreshSession()).data.session : s;
+    if (error) {
+      console.error('Error getting session:', error);
+      return false;
+    }
+    if (!s) return false;
+    if (s.expires_at < Date.now() / 1000) {
+      const { data, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError) {
+        console.error('Error refreshing session:', refreshError);
+        return false;
+      }
+      session = data.session;
+    } else {
+      session = s;
+    }
   }
   return !!session;
 }
@@ -80,32 +93,37 @@ document.getElementById('match-button').onclick = async () => {
   const desiredSex = document.getElementById('desired-sex').value;
   const selectedTopics = [...document.querySelectorAll('.bg-primary')].map(b => b.textContent);
   await supabase.from('match_requests').delete().eq('user_id', session.user.id).is('matched_with', null);
-  const { data, error } = await supabase.from('match_requests').insert({ user_id: session.user.id, desired_sex: desiredSex, topics: selectedTopics || null, participants: [session.user.id] }).select();
+  const { data, error } = await supabase.from('match_requests').insert({
+    user_id: session.user.id,
+    desired_sex: desiredSex,
+    topics: selectedTopics.length ? selectedTopics : null,
+    participants: [session.user.id]
+  }).select();
   if (error) return alert(error.message);
   currentMatchRequest = data[0];
   showPage('loading-page');
   const interval = setInterval(async () => {
     const { data: matchId, error } = await supabase.rpc('find_match', { current_mr_id: currentMatchRequest.id });
-    if (error || !matchId) { clearInterval(interval); await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id); showPage('match-page'); }
-    else { clearInterval(interval); await startChat(matchId); }
+    console.log('Find match result:', { matchId, error });
+    if (error || !matchId) {
+      clearInterval(interval);
+      await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id);
+      showPage('match-page');
+    } else {
+      clearInterval(interval);
+      await startChat(matchId);
+    }
   }, 2000);
 };
 
 async function startChat(matchId) {
   if (!await ensureSession()) return showPage('auth-page');
-  const { data: matchedMr, error: mrErr } = await supabase.from('match_requests').select('user_id').eq('id', matchId).single();
-  if (mrErr) return handleChatError();
-  const { data: profile, error: profErr } = await supabase.from('profiles').select('*').eq('id', matchedMr.user_id).single();
-  if (profErr) return handleChatError();
-  ['display-name', 'username', 'sex', 'state', 'age'].forEach(k => document.getElementById(`matched-${k}`).textContent = profile[k]);
-  const channelName = `chat:${Math.min(currentMatchRequest.id, matchId)}:${Math.max(currentMatchRequest.id, matchId)}`;
-  if (channel) channel.unsubscribe();
-  channel = supabase.channel(channelName, { config: { presence: { key: session.user.id } } });
-  channel.on('broadcast', { event: 'message' }, ({ payload }) => addMessage(payload.text, payload.user_id === session.user.id));
-  channel.on('broadcast', { event: 'user_left' }, () => endChatUI('Your partner has left the chat.'));
-  channel.on('presence', { event: 'sync' }, () => { if (!Object.keys(channel.presenceState()).filter(k => k !== session.user.id).length) endChatUI('Your partner has left the chat.'); });
-  channel.subscribe(status => { if (status === 'SUBSCRIBED') document.getElementById('send-button').disabled = false; });
-  chatMessages.innerHTML = '';
+  const { data: matchedRequest, error } = await supabase.from('match_requests').select().eq('id', matchId).single();
+  if (error) return handleChatError(error);
+  currentMatchRequest = matchedRequest;
+  const otherUserId = matchedRequest.participants.find(id => id !== session.user.id);
+  const { data: otherProfile } = await supabase.from('profiles').select().eq('id', otherUserId).single();
+  document.getElementById('chat-partner-name').textContent = otherProfile.name;
   showPage('chat-page');
 }
 
@@ -156,7 +174,8 @@ function endChatUI(message) {
   document.getElementById('send-button').disabled = true;
 }
 
-function handleChatError() {
+function handleChatError(error) {
+  console.error('Chat error:', error);
   supabase.from('match_requests').delete().eq('id', currentMatchRequest.id);
   showPage('match-page');
 }
