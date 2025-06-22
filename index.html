@@ -104,8 +104,8 @@
                         <option value="Wyoming">Wyoming</option>
                     </select>
                     <button type="submit" class="btn btn-sm btn-dark w-100 mb-2">Create Account</button>
-                    <p class="text-center">Already have an account? <span class="text-cyan-700 fw-bold cursor-pointer"
-                            onclick="toggleAuth()">Login</span></p>
+                    <p class="text-center">Already have an account? <span id="toggle-auth"
+                            class="text-cyan-700 fw-bold cursor-pointer">Login</span></p>
                 </form>
                 <form id="login-form" class="d-none">
                     <h3 class="mb-2">Login</h3>
@@ -114,8 +114,8 @@
                     <label class="form-label">Password</label>
                     <input type="password" class="form-control form-control-sm mb-2" id="login-password" required>
                     <button type="submit" class="btn btn-sm btn-dark w-100 mb-2">Login</button>
-                    <p class="text-center">Don’t have an account? <span class="text-cyan-700 fw-bold cursor-pointer"
-                            onclick="toggleAuth()">Create Account</span></p>
+                    <p class="text-center">Don’t have an account? <span id="toggle-auth"
+                            class="text-cyan-700 fw-bold cursor-pointer">Create Account</span></p>
                 </form>
             </div>
         </div>
@@ -128,10 +128,9 @@
                 <h3 class="mb-2">Match Filters</h3>
                 <label class="form-label">What sex would you like to be matched with?</label>
                 <select class="form-select form-select-sm mb-3" id="desired-sex" required>
-                    <option value="" disabled selected>Select Sex</option>
+                    <option value="Either" selected>Either</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
-                    <option value="Either">Either</option>
                 </select>
                 <div id="topics-container" class="mb-2"></div>
                 <button class="btn btn-sm btn-dark" id="match-button">Match</button>
