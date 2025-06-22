@@ -6,6 +6,11 @@ const topics = {
   'Games': ['Call of Duty', 'Valorant', 'Minecraft']
 };
 
+function toggleAuth() {
+    document.getElementById('create-form').classList.toggle('d-none');
+    document.getElementById('login-form').classList.toggle('d-none');
+}
+
 // Show specific page
 function showPage(pageId) {
   document.querySelectorAll('.page').forEach(page => page.style.display = 'none');
@@ -38,7 +43,7 @@ async function init() {
 init();
 
 // Sign Up
-document.getElementById('signup-form').onsubmit = async (e) => {
+document.getElementById('create-form').onsubmit = async (e) => {
   e.preventDefault();
   const form = e.target;
   const data = {
