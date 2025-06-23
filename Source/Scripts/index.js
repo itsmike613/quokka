@@ -1,33 +1,39 @@
-// --- init supabase & session ---
+// --- supabase init ---
 const supabase = window.supabase.createClient(
 	'https://otxksgnqdwnmhugyhnfu.supabase.co',
-	'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90eGtzZ25xZHdubWh1Z3lobmZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3MTgwOTQsImV4cCI6MjA2NjI5NDA5NH0.4NQGI1dUf5hlW6Tm961OSwpq-Y7pMkxjPinDrVFd4rI'
+	'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90eGtoeXdpbnN0dXBhc2FzZSIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzUwNzE4MDk0LCJleHAiOjIwNjYyOTQwOTR9.4NQGI1dUf5hlW6Tm961OSwpq-Y7pMkxjPinDrVFd4rI'
 );
 let session = null;
 supabase.auth.onAuthStateChange((_, s) => session = s);
-(async () => session = (await supabase.auth.getSession()).data.session)();
+async function initSession() {
+	const { data } = await supabase.auth.getSession();
+	session = data.session;
+}
 
-// --- helpers ---
-// Grab all your DOM nodes
-const createForm   = document.getElementById('create-form');
-const loginForm    = document.getElementById('login-form');
-const profileForm  = document.getElementById('profile-form');
-const toggleLinks  = document.querySelectorAll('.text-cyan-700');
-const profileBtn   = document.getElementById('profile-button');
-const logoutBtn    = document.getElementById('logout-button');
-const ds           = document.getElementById('desired-sex');
+// --- grab DOM nodes ---
+const createForm = document.getElementById('create-form');
+const loginForm = document.getElementById('login-form');
+const profileForm = document.getElementById('profile-form');
+const toggleLinks = document.querySelectorAll('.text-cyan-700');
+const profileButton = document.getElementById('profile-button');
+const logoutButton = document.getElementById('logout-button');
+const ds = document.getElementById('desired-sex');
 const topicsContainer = document.getElementById('topics-container');
-const matchButton  = document.getElementById('match-button');
-const skipButton   = document.getElementById('skip-button');
-const exitButton   = document.getElementById('exit-button');
-const sendButton   = document.getElementById('send-button');
+const matchButton = document.getElementById('match-button');
+const skipButton = document.getElementById('skip-button');
+const exitButton = document.getElementById('exit-button');
+const sendButton = document.getElementById('send-button');
 const messageInput = document.getElementById('message-input');
 const chatMessages = document.getElementById('chat-messages');
+const matchedDisplayName = document.getElementById('matched-display-name');
+const matchedUsername = document.getElementById('matched-username');
+const matchedSex = document.getElementById('matched-sex');
+const matchedAge = document.getElementById('matched-age');
 
-// Re-create toggleAuth if you still want that login/signup switch
+// --- helpers ---
 function toggleAuth() {
-  createForm.classList.toggle('d-none');
-  loginForm.classList.toggle('d-none');
+	createForm.classList.toggle('d-none');
+	loginForm.classList.toggle('d-none');
 }
 toggleLinks.forEach(el => el.addEventListener('click', toggleAuth));
 
@@ -35,75 +41,139 @@ function showPage(id) {
 	document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
 	document.getElementById(id).style.display = 'block';
 }
-function savePrefs() { localStorage.desired_sex = ds.value; localStorage.selected_topics = JSON.stringify([...document.querySelectorAll('.bg-primary')].map(b => b.textContent)); }
+
+function savePrefs() {
+	localStorage.desired_sex = ds.value;
+	localStorage.selected_topics = JSON.stringify(
+		[...document.querySelectorAll('.bg-primary')].map(b => b.textContent)
+	);
+}
+
 function loadPrefs() {
 	ds.value = localStorage.desired_sex || 'Either';
 	JSON.parse(localStorage.selected_topics || '[]').forEach(t => {
-		[...document.querySelectorAll('.badge')].filter(b => b.textContent === t).forEach(b => b.classList.replace('bg-secondary', 'bg-primary'));
+		[...document.querySelectorAll('.badge')]
+			.filter(b => b.textContent === t)
+			.forEach(b => b.classList.replace('bg-secondary', 'bg-primary'));
 	});
 }
 
 // --- Auth & Profile ---
 createForm.onsubmit = async e => {
 	e.preventDefault();
-	const d = { email: cf.email.value, password: cf.password.value };
-	const { data: u, error: e1 } = await supabase.auth.signUp(d);
+	const email = createForm['email'].value;
+	const password = createForm['password'].value;
+	const { data: u, error: e1 } = await supabase.auth.signUp({ email, password });
 	if (e1) return alert(e1.message);
-	const pd = { id: u.user.id, display_name: cf['display-name'].value, username: cf.username.value, age: +cf.age.value, sex: cf.sex.value };
+
+	const pd = {
+		id: u.user.id,
+		display_name: createForm['display-name'].value,
+		username: createForm.username.value,
+		age: +createForm.age.value,
+		sex: createForm.sex.value
+	};
 	const { error: e2 } = await supabase.from('profiles').insert(pd);
-	if (e2) { alert(e2.message); await supabase.auth.signOut(); return; }
-	showPage('match-page'); loadPrefs();
+	if (e2) {
+		alert(e2.message);
+		await supabase.auth.signOut();
+		return;
+	}
+
+	showPage('match-page');
+	loadPrefs();
 };
+
 loginForm.onsubmit = async e => {
 	e.preventDefault();
-	const { error } = await supabase.auth.signInWithPassword({ email: lf['login-email'].value, password: lf['login-password'].value });
+	const email = loginForm['login-email'].value;
+	const password = loginForm['login-password'].value;
+	const { error } = await supabase.auth.signInWithPassword({ email, password });
 	if (error) return alert(error.message);
-	showPage('match-page'); loadPrefs();
+
+	showPage('match-page');
+	loadPrefs();
 };
+
 profileButton.onclick = async () => {
-	const { data, p } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-	if (p) return alert(p.message);
-	profile['profile-display-name'].value = data.display_name;
-	profile['profile-username'].value = data.username;
+	const { data, error } = await supabase
+		.from('profiles')
+		.select('*')
+		.eq('id', session.user.id)
+		.single();
+	if (error) return alert(error.message);
+
+	profileForm['profile-display-name'].value = data.display_name;
+	profileForm['profile-username'].value = data.username;
 	showPage('profile-page');
 };
+
 profileForm.onsubmit = async e => {
 	e.preventDefault();
-	const d = { display_name: profile['profile-display-name'].value, username: profile['profile-username'].value };
-	const { error } = await supabase.from('profiles').update(d).eq('id', session.user.id);
+	const updated = {
+		display_name: profileForm['profile-display-name'].value,
+		username: profileForm['profile-username'].value
+	};
+	const { error } = await supabase
+		.from('profiles')
+		.update(updated)
+		.eq('id', session.user.id);
 	alert(error ? error.message : 'Profile saved');
 	if (!error) showPage('match-page');
 };
-logoutButton.onclick = async () => { await supabase.auth.signOut(); showPage('auth-page'); };
+
+logoutButton.onclick = async () => {
+	await supabase.auth.signOut();
+	showPage('auth-page');
+};
 
 // --- Topics UI ---
-Object.entries({ Sports: ['Basketball', 'Hockey', 'Soccer', 'Swimming'], Games: ['CoD', 'Valorant', 'Minecraft', 'Roblox'] })
-	.forEach(([cat, its]) => {
-		topicsContainer.append(Object.assign(document.createElement('h5'), { textContent: cat }));
-		its.forEach(t => {
-			const b = document.createElement('span');
-			b.className = 'badge bg-secondary m-1'; b.textContent = t; b.style.cursor = 'pointer';
-			b.onclick = () => { b.classList.toggle('bg-secondary'); b.classList.toggle('bg-primary'); savePrefs(); };
-			topicsContainer.append(b);
-		});
+Object.entries({
+	Sports: ['Basketball', 'Hockey', 'Soccer', 'Swimming'],
+	Games: ['CoD', 'Valorant', 'Minecraft', 'Roblox']
+}).forEach(([cat, its]) => {
+	const h = document.createElement('h5'); h.textContent = cat;
+	topicsContainer.append(h);
+	its.forEach(t => {
+		const b = document.createElement('span');
+		b.className = 'badge bg-secondary m-1';
+		b.textContent = t;
+		b.style.cursor = 'pointer';
+		b.onclick = () => {
+			b.classList.toggle('bg-secondary');
+			b.classList.toggle('bg-primary');
+			savePrefs();
+		};
+		topicsContainer.append(b);
 	});
+});
 ds.onchange = savePrefs;
 
 // --- Matching logic ---
 async function joinPool() {
-	await supabase.from('match_pool').delete().eq('user_id', session.user.id).is('id', null);
+	// remove any old
+	await supabase
+		.from('match_pool')
+		.delete()
+		.eq('user_id', session.user.id);
+
 	await supabase.from('match_pool').insert({
 		user_id: session.user.id,
 		desired_sex: ds.value,
 		topics: [...document.querySelectorAll('.bg-primary')].map(b => b.textContent) || null
 	});
 }
+
 async function checkMatch() {
 	await supabase.rpc('do_match');
-	const { data } = await supabase.from('matched_users')
-		.select('*').or(`a_id.eq.${session.user.id},b_id.eq.${session.user.id}`).single();
+	const { data } = await supabase
+		.from('matched_users')
+		.select('*')
+		.or(`a_id.eq.${session.user.id},b_id.eq.${session.user.id}`)
+		.single();
 	return data;
 }
+
 async function startMatching() {
 	await joinPool();
 	showPage('loading-page');
@@ -112,42 +182,83 @@ async function startMatching() {
 		await new Promise(r => setTimeout(r, 2000));
 		m = await checkMatch();
 	}
-	setupChat(m); showPage('chat-page');
+	setupChat(m);
+	showPage('chat-page');
 }
 
+matchButton.onclick = startMatching;
+
 // --- Chat UI ---
-function addMsg(t, self, sys) {
-	const d = document.createElement('div');
-	d.className = 'py-1 ' + (sys ? 'd-flex flex-column align-items-end my-2' : 'd-flex flex-column ' + (self ? 'align-items-end' : 'align-items-start') + ' my-2');
-	d.innerHTML = `<div class="d-inline-block ${sys ? 'bg-danger text-white' : ' ' + (self ? 'bg-primary text-white' : 'bg-light')} rounded p-2"><div class="text-sm">${t}</div></div>`;
-	chatMessages.appendChild(d); chatMessages.scrollTop = chatMessages.scrollHeight;
+function addMsg(text, self = false, sys = false) {
+	const div = document.createElement('div');
+	div.className = 'py-1 ' +
+		(sys
+			? 'd-flex flex-column align-items-end my-2'
+			: `d-flex flex-column ${self ? 'align-items-end' : 'align-items-start'} my-2`
+		);
+	div.innerHTML = `<div class="d-inline-block ${sys ? 'bg-danger text-white' : self ? 'bg-primary text-white' : 'bg-light'
+		} rounded p-2"><div class="text-sm">${text}</div></div>`;
+	chatMessages.appendChild(div);
+	chatMessages.scrollTop = chatMessages.scrollHeight;
 }
+
 let channel;
 function setupChat(match) {
-	const partner = match.a_id === session.user.id ? match.b_id : match.a_id;
-	matchedDisplayName.textContent = '…'; // fetch profile if needed
+	// display partner info
+	const partnerId = match.a_id === session.user.id ? match.b_id : match.a_id;
+	supabase
+		.from('profiles')
+		.select('*')
+		.eq('id', partnerId)
+		.single()
+		.then(({ data }) => {
+			matchedDisplayName.textContent = data.display_name;
+			matchedUsername.textContent = data.username;
+			matchedSex.textContent = data.sex;
+			matchedAge.textContent = data.age;
+		});
+
 	channel = supabase.channel(`chat:${match.id}`);
-	channel.on('broadcast', { event: 'message' }, ({ payload }) => addMsg(payload.text, payload.user === session.user.id));
-	channel.on('broadcast', { event: 'user_left' }, () => addMsg('Partner left', false, true));
+	channel.on('broadcast', { event: 'message' }, ({ payload }) =>
+		addMsg(payload.text, payload.user === session.user.id)
+	);
+	channel.on('broadcast', { event: 'user_left' }, () =>
+		addMsg('Partner left', false, true)
+	);
 	channel.subscribe();
 }
+
 sendButton.onclick = () => {
 	const t = messageInput.value.trim();
 	if (!t) return;
-	channel.send({ type: 'broadcast', event: 'message', payload: { text: t, user: session.user.id } });
+	channel.send({
+		type: 'broadcast',
+		event: 'message',
+		payload: { text: t, user: session.user.id }
+	});
 	addMsg(t, true);
 	messageInput.value = '';
 };
-skipButton.onclick = () => unmatch(true);
-exitButton.onclick = () => unmatch(false);
 
 async function unmatch(skip) {
-	await supabase.from('matched_users').delete().or(`a_id.eq.${session.user.id},b_id.eq.${session.user.id}`);
+	await supabase
+		.from('matched_users')
+		.delete()
+		.or(`a_id.eq.${session.user.id},b_id.eq.${session.user.id}`);
+
 	channel.send({ type: 'broadcast', event: 'user_left' });
-	channel.unsubscribe(); chatMessages.innerHTML = '';
+	channel.unsubscribe();
+	chatMessages.innerHTML = '';
+
 	if (skip) await joinPool();
 	showPage('match-page');
 }
 
-// --- start ---
-init().then(() => showPage(session ? 'match-page' : 'auth-page'));
+skipButton.onclick = () => unmatch(true);
+exitButton.onclick = () => unmatch(false);
+
+// --- kick things off ---
+; (async () => {
+	await initSession();
+	showPage(session ? 'match-page' : 'auth-page');
+})();
