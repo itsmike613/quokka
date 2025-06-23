@@ -97,11 +97,12 @@ loginForm.onsubmit = async e => {
 
 profileButton.onclick = async () => {
 	const { data, error } = await supabase
-		.from('profiles')
-		.select('*')
-		.eq('id', session.user.id)
-		.single();
-	if (error) return alert(error.message);
+		.from('matched_users')
+		.select('id,a_id,b_id,topics')
+		.or(`a_id.eq.${session.user.id},b_id.eq.${session.user.id}`)
+		.maybeSingle();
+	if (error && error.code !== 'PGRST116') console.error(error);
+	return data;
 
 	profileForm['profile-display-name'].value = data.display_name;
 	profileForm['profile-username'].value = data.username;
@@ -165,12 +166,21 @@ async function joinPool() {
 }
 
 async function checkMatch() {
+	if (!session?.user) return null;
+
+	// fire the server‐side matcher
 	await supabase.rpc('do_match');
-	const { data } = await supabase
+
+	// look for a match (returns null if none)
+	const { data, error } = await supabase
 		.from('matched_users')
-		.select('*')
+		.select('id,a_id,b_id,topics')
 		.or(`a_id.eq.${session.user.id},b_id.eq.${session.user.id}`)
-		.single();
+		.maybeSingle();
+
+	// ignore “no row” errors, but log real ones
+	if (error && error.code !== 'PGRST116') console.error(error);
+
 	return data;
 }
 
@@ -179,9 +189,16 @@ async function startMatching() {
 	showPage('loading-page');
 	let m = null;
 	while (!m) {
+		// if session ever drops, bail
+		if (!session?.user) {
+			alert('Session expired. Please log in again.');
+			return showPage('auth-page');
+		}
+
 		await new Promise(r => setTimeout(r, 2000));
 		m = await checkMatch();
 	}
+
 	setupChat(m);
 	showPage('chat-page');
 }
@@ -242,9 +259,9 @@ sendButton.onclick = () => {
 
 async function unmatch(skip) {
 	await supabase
-		.from('matched_users')
+		.from('match_pool')
 		.delete()
-		.or(`a_id.eq.${session.user.id},b_id.eq.${session.user.id}`);
+		.eq('user_id', session.user.id);
 
 	channel.send({ type: 'broadcast', event: 'user_left' });
 	channel.unsubscribe();
