@@ -8,6 +8,29 @@ supabase.auth.onAuthStateChange((_, s) => session = s);
 (async () => session = (await supabase.auth.getSession()).data.session)();
 
 // --- helpers ---
+// Grab all your DOM nodes
+const createForm   = document.getElementById('create-form');
+const loginForm    = document.getElementById('login-form');
+const profileForm  = document.getElementById('profile-form');
+const toggleLinks  = document.querySelectorAll('.text-cyan-700');
+const profileBtn   = document.getElementById('profile-button');
+const logoutBtn    = document.getElementById('logout-button');
+const ds           = document.getElementById('desired-sex');
+const topicsContainer = document.getElementById('topics-container');
+const matchButton  = document.getElementById('match-button');
+const skipButton   = document.getElementById('skip-button');
+const exitButton   = document.getElementById('exit-button');
+const sendButton   = document.getElementById('send-button');
+const messageInput = document.getElementById('message-input');
+const chatMessages = document.getElementById('chat-messages');
+
+// Re-create toggleAuth if you still want that login/signup switch
+function toggleAuth() {
+  createForm.classList.toggle('d-none');
+  loginForm.classList.toggle('d-none');
+}
+toggleLinks.forEach(el => el.addEventListener('click', toggleAuth));
+
 function showPage(id) {
 	document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
 	document.getElementById(id).style.display = 'block';
