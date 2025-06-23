@@ -36,20 +36,39 @@ document.getElementById('create-form').onsubmit = async e => {
 	e.preventDefault();
 	const form = Object.fromEntries(new FormData(e.target));
 	if (form['display-name'].length < 3 || form['display-name'].length > 16 || form.username.length < 3 || form.username.length > 16)
-	return alert('Display Name and Username must be 3-16 characters');
+		return alert('Display Name and Username must be 3-16 characters');
 
+	// Sign up and explicitly set the session
 	const { data, error } = await supabase.auth.signUp({ email: form.email, password: form.password });
 	if (error) return alert(error.message);
 
-	const profile = { id: data.user.id, display_name: form['display-name'], username: form.username, age: parseInt(form.age), sex: form.sex };
+	// Ensure session is set
+	if (!data.session) {
+		alert('Session not established. Please try logging in.');
+		return;
+	}
+
+	// Set session explicitly
+	await supabase.auth.setSession(data.session);
+	session = data.session;
+
+	// Insert profile
+	const profile = {
+		id: data.user.id,
+		display_name: form['display-name'],
+		username: form.username,
+		age: parseInt(form.age),
+		sex: form.sex
+	};
 	const { error: profileError } = await supabase.from('profiles').insert(profile);
 	if (profileError) {
-	alert(`Profile creation failed: ${profileError.message}`);
-	await supabase.auth.signOut();
-	} else {
-	session = data.session;
-	showPage('match-page');
+		alert(`Profile creation failed: ${profileError.message}`);
+		await supabase.auth.signOut();
+		return;
 	}
+
+	showPage('match-page');
+	loadMatchForm();
 };
 
 document.getElementById('login-form').onsubmit = async e => {
