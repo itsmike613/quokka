@@ -113,11 +113,17 @@ document.getElementById('desired-sex').onchange = () => {
   localStorage.setItem('desired_sex', document.getElementById('desired-sex').value);
 };
 
+let isMatching = false;
 document.getElementById('match-button').onclick = async () => {
   if (!session) {
     alert('Please log in to continue.');
     return;
   }
+  if (isMatching) return; // Prevent multiple clicks
+  isMatching = true;
+  const matchButton = document.getElementById('match-button');
+  matchButton.disabled = true;
+
   const desiredSex = document.getElementById('desired-sex').value;
   const selectedTopics = [...document.querySelectorAll('.bg-primary')].map(b => b.textContent);
 
@@ -139,68 +145,86 @@ document.getElementById('match-button').onclick = async () => {
       .select()
       .single();
 
-    if (error) {
-      console.error('Match request insert error:', error);
-      alert(`Failed to create match request: ${error.message}`);
-      return;
-    }
+    if (error) throw new Error(`Match request insert error: ${error.message}`);
 
     console.log('Inserted match request:', JSON.stringify(data, null, 2));
     currentMatchRequest = data;
     showPage('loading-page');
 
-    // Unsubscribe from any existing subscription
+    // Clean up any existing subscription
     if (matchSubscription) {
-      matchSubscription.unsubscribe();
+      await matchSubscription.unsubscribe();
       matchSubscription = null;
     }
 
-    // Trigger matching logic immediately
+    // Try immediate match
     const { data: matchId, error: matchError } = await supabase.rpc('find_match', {
       current_mr_id: currentMatchRequest.id
     });
 
-    if (matchError) {
-      console.error('Find match error:', matchError);
-      alert('Error finding match. Please try again.');
-      await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id);
-      showPage('match-page');
-      return;
-    }
+    if (matchError) throw new Error(`Find match error: ${matchError.message}`);
 
     if (matchId) {
       await startChat(matchId);
     } else {
-      // Set up real-time subscription if no match is found immediately
+      // Set up real-time subscription with timeout
+      const timeout = setTimeout(async () => {
+        if (matchSubscription) {
+          await matchSubscription.unsubscribe();
+          matchSubscription = null;
+        }
+        if (currentMatchRequest) {
+          await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id);
+          currentMatchRequest = null;
+        }
+        alert('No match found. Please try again.');
+        showPage('match-page');
+        isMatching = false;
+        matchButton.disabled = false;
+      }, 30000); // 30 seconds timeout
+
       matchSubscription = supabase
-        .channel('match_requests')
+        .channel(`match_requests:${currentMatchRequest.id}`)
         .on('postgres_changes', { 
           event: 'UPDATE', 
           schema: 'public', 
           table: 'match_requests', 
           filter: `id=eq.${currentMatchRequest.id}` 
-        }, (payload) => {
+        }, async (payload) => {
           if (payload.new.matched_with) {
-            matchSubscription.unsubscribe();
-            matchSubscription = null;
-            startChat(payload.new.matched_with);
+            clearTimeout(timeout);
+            if (matchSubscription) {
+              await matchSubscription.unsubscribe();
+              matchSubscription = null;
+            }
+            await startChat(payload.new.matched_with);
           }
         })
         .subscribe();
     }
   } catch (err) {
-    console.error('Match process error:', err);
-    alert('Unexpected error during matching. Please try again.');
+    console.error('Match process error:', err.message);
+    alert(`Matching failed: ${err.message}`);
     if (currentMatchRequest) {
-      await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id);
+      await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id).catch(console.error);
+      currentMatchRequest = null;
+    }
+    if (matchSubscription) {
+      await matchSubscription.unsubscribe().catch(console.error);
+      matchSubscription = null;
     }
     showPage('match-page');
+    isMatching = false;
+    matchButton.disabled = false;
   }
 };
 
 async function startChat(matchId) {
   if (!session) {
     alert('Please log in to continue.');
+    showPage('auth-page');
+    isMatching = false;
+    document.getElementById('match-button').disabled = false;
     return;
   }
   try {
@@ -210,9 +234,7 @@ async function startChat(matchId) {
       .select('user_id')
       .eq('id', matchId)
       .single();
-    if (mrError || !matchedMr) {
-      throw new Error(`Failed to fetch matched request: ${mrError?.message || 'No data'}`);
-    }
+    if (mrError || !matchedMr) throw new Error(`Failed to fetch matched request: ${mrError?.message || 'No data'}`);
 
     console.log('Matched request:', matchedMr);
     const { data: profile, error: profileError } = await supabase
@@ -220,9 +242,7 @@ async function startChat(matchId) {
       .select('*')
       .eq('id', matchedMr.user_id)
       .single();
-    if (profileError || !profile) {
-      throw new Error(`Failed to fetch profile: ${profileError?.message || 'No data'}`);
-    }
+    if (profileError || !profile) throw new Error(`Failed to fetch profile: ${profileError?.message || 'No data'}`);
 
     console.log('Matched profile:', profile);
     document.getElementById('matched-display-name').textContent = profile.display_name;
@@ -238,17 +258,22 @@ async function startChat(matchId) {
     channel.on('broadcast', { event: 'user_left' }, () => {
       addMessage(`${profile.username} left the chat.`, false, true);
       document.getElementById('message-input').disabled = true;
-      document.getElementById('send-button').disabled = true;
+      document.getElementById('send-button').disabled = false;
     });
     channel.subscribe();
     showPage('chat-page');
+    isMatching = false;
+    document.getElementById('match-button').disabled = false;
   } catch (err) {
-    console.error('Start chat error:', err);
-    alert('Error starting chat. Returning to match page.');
+    console.error('Start chat error:', err.message);
+    alert(`Error starting chat: ${err.message}`);
     if (currentMatchRequest) {
-      await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id);
+      await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id).catch(console.error);
+      currentMatchRequest = null;
     }
     showPage('match-page');
+    isMatching = false;
+    document.getElementById('match-button').disabled = false;
   }
 }
 
@@ -302,6 +327,7 @@ document.getElementById('exit-button').onclick = async () => {
 async function endChat() {
   if (!session) {
     console.log('No active session during endChat.');
+    showPage('auth-page');
     return;
   }
   try {
@@ -317,19 +343,21 @@ async function endChat() {
       } else if (matchedMr?.matched_with) {
         await supabase.from('match_requests').delete().eq('id', matchedMr.matched_with);
       }
+      currentMatchRequest = null;
     }
     if (channel) {
-      channel.unsubscribe();
+      await channel.unsubscribe();
       channel = null;
     }
     if (matchSubscription) {
-      matchSubscription.unsubscribe();
+      await matchSubscription.unsubscribe();
       matchSubscription = null;
     }
     document.getElementById('chat-messages').innerHTML = '';
-    currentMatchRequest = null;
     document.getElementById('message-input').disabled = false;
     document.getElementById('send-button').disabled = false;
+    isMatching = false;
+    document.getElementById('match-button').disabled = false;
   } catch (err) {
     console.error('Error during endChat:', err);
   }
@@ -338,13 +366,12 @@ async function endChat() {
 document.getElementById('profile-button').onclick = async () => {
   if (!session) {
     alert('Please log in to continue.');
+    showPage('auth-page');
     return;
   }
   try {
     const { data, error } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-    if (error || !data) {
-      throw new Error('Failed to load profile.');
-    }
+    if (error || !data) throw new Error('Failed to load profile.');
     document.getElementById('profile-display-name').value = data.display_name;
     document.getElementById('profile-username').value = data.username;
     showPage('profile-page');
@@ -358,6 +385,7 @@ document.getElementById('profile-form').onsubmit = async e => {
   e.preventDefault();
   if (!session) {
     alert('Please log in to continue.');
+    showPage('auth-page');
     return;
   }
   const form = e.target;
