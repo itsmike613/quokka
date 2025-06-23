@@ -101,26 +101,45 @@ Object.entries(topics).forEach(([cat, items]) => {
 document.getElementById('desired-sex').onchange = e => localStorage.setItem('desired_sex', e.target.value);
 
 document.getElementById('match-button').onclick = async () => {
+	// Verify and refresh session
+	const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+	if (sessionError || !currentSession) {
+		alert('Session expired. Please log in again.');
+		session = null;
+		showPage('auth-page');
+		return;
+	}
+	session = currentSession;
+
 	const desiredSex = document.getElementById('desired-sex').value;
 	const selectedTopics = [...document.querySelectorAll('.bg-primary')].map(b => b.textContent);
 
+	// Delete any existing match_pool entry for the user
 	await supabase.from('match_pool').delete().eq('user_id', session.user.id);
-	const { data, error } = await supabase.from('match_pool').insert({ user_id: session.user.id, desired_sex: desiredSex, topics: selectedTopics || null }).select();
-	if (error) return alert(`Match pool error: ${error.message}`);
+
+	// Insert new match_pool entry
+	const { data, error } = await supabase
+		.from('match_pool')
+		.insert({ user_id: session.user.id, desired_sex: desiredSex, topics: selectedTopics || null })
+		.select();
+	if (error) {
+		alert(`Match pool error: ${error.message}`);
+		return;
+	}
 
 	showPage('loading-page');
 	const interval = setInterval(async () => {
-	const { data: matchId, error } = await supabase.rpc('find_match', { current_user_id: session.user.id });
-	if (error) {
+		const { data: matchId, error } = await supabase.rpc('find_match', { current_user_id: session.user.id });
+		if (error) {
 		clearInterval(interval);
 		alert(`Match error: ${error.message}`);
 		await supabase.from('match_pool').delete().eq('user_id', session.user.id);
 		showPage('match-page');
-	} else if (matchId) {
+		} else if (matchId) {
 		clearInterval(interval);
 		currentMatchId = matchId;
 		await startChat(matchId);
-	}
+		}
 	}, 2000);
 };
 
