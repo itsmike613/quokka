@@ -1,4 +1,4 @@
-const supabase = window.supabase.createClient('https://kaznegpcfzhbggqkebcw.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imthem5lZ3BjZnpoYmdncWtlYmN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3MDk5OTcsImV4cCI6MjA2NjI4NTk5N30.yszmi4z08iYdGLA0jwsix-pA3QMkjp-tcfyhF-LGMRs');
+const supabase = window.supabase.createClient('https://iixlcjzlsexccqzveoug.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlpeGxjanpsc2V4Y2NxenZlb3VnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3MTM2OTAsImV4cCI6MjA2NjI4OTY5MH0.6c6Oomi-bG-b2tFY873wpIKq9V9r871FH9nrJqoTYSI');
 let session, channel, currentMatchId;
 
 const topics = {
@@ -123,7 +123,8 @@ document.getElementById('match-button').onclick = async () => {
 
   try {
     // Remove user from match pool if already present
-    await supabase.from('match_pool').delete().eq('user_id', session.user.id);
+    const { error: deleteError } = await supabase.from('match_pool').delete().eq('user_id', session.user.id);
+    if (deleteError) throw new Error(`Failed to clear match pool: ${deleteError.message}`);
 
     // Add user to match pool
     const { error: poolError } = await supabase.from('match_pool').insert({
@@ -170,13 +171,15 @@ document.getElementById('match-button').onclick = async () => {
     }
 
     // Timeout reached
-    await supabase.from('match_pool').delete().eq('user_id', session.user.id);
+    const { error: timeoutDeleteError } = await supabase.from('match_pool').delete().eq('user_id', session.user.id);
+    if (timeoutDeleteError) console.error('Failed to clear match pool on timeout:', timeoutDeleteError.message);
     alert('No match found. Please try again.');
     showPage('match-page');
   } catch (err) {
     console.error('Match process error:', err.message);
     alert(`Matching failed: ${err.message}`);
-    await supabase.from('match_pool').delete().eq('user_id', session.user.id);
+    const { error: cleanupError } = await supabase.from('match_pool').delete().eq('user_id', session.user.id);
+    if (cleanupError) console.error('Failed to clear match pool on error:', cleanupError.message);
     showPage('match-page');
   }
 };
@@ -227,7 +230,8 @@ async function startChat(matchId) {
   } catch (err) {
     console.error('Start chat error:', err.message);
     alert(`Error starting chat: ${err.message}`);
-    await supabase.from('matches').delete().eq('id', matchId);
+    const { error: deleteError } = await supabase.from('matches').delete().eq('id', matchId);
+    if (deleteError) console.error('Failed to delete match:', deleteError.message);
     showPage('match-page');
   }
 }
@@ -287,7 +291,8 @@ async function endChat() {
   }
   try {
     if (currentMatchId) {
-      await supabase.from('matches').delete().eq('id', currentMatchId);
+      const { error } = await supabase.from('matches').delete().eq('id', currentMatchId);
+      if (error) console.error('Failed to delete match:', error.message);
       currentMatchId = null;
     }
     if (channel) {
