@@ -33,16 +33,8 @@ function init() {
   supabase.auth.onAuthStateChange((event, newSession) => {
     session = newSession;
     if (newSession) {
-      // Check if profile exists before showing match page
-      supabase.from('profiles').select('id').eq('id', newSession.user.id).single().then(({ data, error }) => {
-        if (error || !data) {
-          alert('Profile not found. Please sign up again.');
-          supabase.auth.signOut();
-          return;
-        }
-        showPage('match-page');
-        if (event === 'SIGNED_IN') loadMatchFormSettings();
-      });
+      showPage('match-page');
+      if (event === 'SIGNED_IN') loadMatchFormSettings();
     } else {
       showPage('auth-page');
     }
@@ -54,10 +46,10 @@ document.getElementById('create-form').onsubmit = async (e) => {
   e.preventDefault();
   const form = e.target;
   const data = {
-    display_name: form['display-name'].value,
-    username: form.username.value,
     email: form.email.value,
     password: form.password.value,
+    display_name: form['display-name'].value,
+    username: form.username.value,
     age: parseInt(form.age.value),
     sex: form.sex.value
   };
@@ -75,14 +67,14 @@ document.getElementById('create-form').onsubmit = async (e) => {
     if (signUpError) throw new Error(`Signup failed: ${signUpError.message}`);
     if (!authData.user) throw new Error('No user data returned after signup');
 
-    const { error: profileError } = await supabase.from('profiles').insert({
-      id: authData.user.id,
+    // Update the default profile created by the trigger
+    const { error: profileError } = await supabase.from('profiles').update({
       display_name: data.display_name,
       username: data.username,
       age: data.age,
       sex: data.sex
-    });
-    if (profileError) throw new Error(`Failed to create profile: ${profileError.message}`);
+    }).eq('id', authData.user.id);
+    if (profileError) throw new Error(`Failed to update profile: ${profileError.message}`);
   } catch (err) {
     alert(err.message);
     await supabase.auth.signOut();
@@ -130,13 +122,7 @@ document.getElementById('desired-sex').onchange = () => {
 document.getElementById('match-button').onclick = async () => {
   if (!session) {
     alert('Please log in to continue.');
-    return;
-  }
-  // Verify profile exists
-  const { data: profile, error: profileError } = await supabase.from('profiles').select('id').eq('id', session.user.id).single();
-  if (profileError || !profile) {
-    alert('Profile not found. Please sign up again.');
-    await supabase.auth.signOut();
+    showPage('auth-page');
     return;
   }
 
@@ -199,7 +185,7 @@ document.getElementById('match-button').onclick = async () => {
   } catch (err) {
     alert(`Matching failed: ${err.message}`);
     const { error: cleanupError } = await supabase.from('match_pool').delete().eq('user_id', session.user.id);
-    if (cleanupError) console.error('Failed to clear match pool on error:', cleanupError.message);
+    if (cleanupError) console.error('Failed to clear match pool:', cleanupError.message);
     showPage('match-page');
   }
 };
@@ -331,14 +317,14 @@ document.getElementById('profile-button').onclick = async () => {
   try {
     const { data, error } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
     if (error || !data) {
-      throw new Error('Profile not found. Please sign up again.');
+      throw new Error('Profile not found. Please update your profile.');
     }
     document.getElementById('profile-display-name').value = data.display_name;
     document.getElementById('profile-username').value = data.username;
     showPage('profile-page');
   } catch (err) {
     alert(err.message);
-    showPage('auth-page');
+    showPage('match-page');
   }
 };
 
@@ -359,8 +345,22 @@ document.getElementById('profile-form').onsubmit = async e => {
     return alert('Display Name and Username must be 3-16 characters');
   }
   try {
-    const { error } = await supabase.from('profiles').update(data).eq('id', session.user.id);
-    if (error) throw new Error(`Failed to update profile: ${error.message}`);
+    const { data: existingProfile, error: selectError } = await supabase.from('profiles').select('id').eq('id', session.user.id).single();
+    if (selectError || !existingProfile) {
+      // Insert a new profile if none exists
+      const { error: insertError } = await supabase.from('profiles').insert({
+        id: session.user.id,
+        display_name: data.display_name,
+        username: data.username,
+        age: 18,
+        sex: 'Male'
+      });
+      if (insertError) throw new Error(`Failed to create profile: ${insertError.message}`);
+    } else {
+      // Update existing profile
+      const { error: updateError } = await supabase.from('profiles').update(data).eq('id', session.user.id);
+      if (updateError) throw new Error(`Failed to update profile: ${updateError.message}`);
+    }
     alert('Profile updated');
     showPage('match-page');
   } catch (err) {
