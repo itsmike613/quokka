@@ -1,7 +1,7 @@
 // --- supabase init ---
 const supabase = window.supabase.createClient(
 	'https://otxksgnqdwnmhugyhnfu.supabase.co',
-	'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90eGtoeXdpbnN0dXBhc2FzZSIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzUwNzE4MDk0LCJleHAiOjIwNjYyOTQwOTR9.4NQGI1dUf5hlW6Tm961OSwpq-Y7pMkxjPinDrVFd4rI'
+	'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90eGtzZ25xZHdubWh1Z3lobmZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3MTgwOTQsImV4cCI6MjA2NjI5NDA5NH0.4NQGI1dUf5hlW6Tm961OSwpq-Y7pMkxjPinDrVFd4rI'
 );
 let session = null;
 supabase.auth.onAuthStateChange((_, s) => session = s);
