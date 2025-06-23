@@ -1,4 +1,4 @@
-const supabase = Supabase.createClient('https://hjmkbavjskynegwkfarq.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqbWtiYXZqc2t5bmVnd2tmYXJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3MTU3NjcsImV4cCI6MjA2NjI5MTc2N30.5CU4lIAmmsENQnMgNN2NupZPT4sKdRj62CFIbNAQ_0M');
+const supabase = window.supabase.createClient('https://hjmkbavjskynegwkfarq.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqbWtiYXZqc2t5bmVnd2tmYXJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3MTU3NjcsImV4cCI6MjA2NjI5MTc2N30.5CU4lIAmmsENQnMgNN2NupZPT4sKdRj62CFIbNAQ_0M');
 let session, channel, currentMatchId;
 
 const topics = {
