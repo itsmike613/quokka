@@ -59,23 +59,29 @@ document.getElementById('create-form').onsubmit = async (e) => {
     return alert('Display Name and Username must be 3-16 characters');
   }
 
-  const { error: signUpError } = await supabase.auth.signUp({
-    email: data.email,
-    password: data.password
-  });
-  if (signUpError) return alert(signUpError.message);
+  try {
+    const { data: authData, error: signUpError } = await supabase.auth.signUp({
+      email: data.email,
+      password: data.password
+    });
+    if (signUpError) throw new Error(`Signup failed: ${signUpError.message}`);
+    if (!authData.user) throw new Error('No user data returned after signup');
 
-  const { error: profileError } = await supabase.from('profiles').insert({
-    id: (await supabase.auth.getUser()).user.id,
-    display_name: data.display_name,
-    username: data.username,
-    age: data.age,
-    sex: data.sex
-  });
+    const { error: profileError } = await supabase.from('profiles').insert({
+      id: authData.user.id,
+      display_name: data.display_name,
+      username: data.username,
+      age: data.age,
+      sex: data.sex
+    });
 
-  if (profileError) {
-    alert(`Failed to create profile: ${profileError.message}`);
-    await supabase.auth.signOut();
+    if (profileError) {
+      await supabase.auth.signOut();
+      throw new Error(`Failed to create profile: ${profileError.message}`);
+    }
+  } catch (err) {
+    console.error('Signup error:', err.message);
+    alert(err.message);
   }
 };
 
@@ -86,7 +92,7 @@ document.getElementById('login-form').onsubmit = async (e) => {
     email: form['login-email'].value,
     password: form['login-password'].value
   });
-  if (error) alert(error.message);
+  if (error) alert(`Login failed: ${error.message}`);
 };
 
 const topicsContainer = document.getElementById('topics-container');
@@ -315,13 +321,19 @@ document.getElementById('profile-button').onclick = async () => {
   }
   try {
     const { data, error } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-    if (error || !data) throw new Error('Failed to load profile.');
+    if (error || !data) {
+      console.error('Profile fetch error:', error?.message || 'No profile found');
+      alert('Profile not found. Please sign up again or contact support.');
+      showPage('auth-page');
+      return;
+    }
     document.getElementById('profile-display-name').value = data.display_name;
     document.getElementById('profile-username').value = data.username;
     showPage('profile-page');
   } catch (err) {
-    console.error('Profile load error:', err);
-    alert('Failed to load profile. Please try again.');
+    console.error('Profile load error:', err.message);
+    alert(`Failed to load profile: ${err.message}`);
+    showPage('auth-page');
   }
 };
 
@@ -343,11 +355,11 @@ document.getElementById('profile-form').onsubmit = async e => {
   }
   try {
     const { error } = await supabase.from('profiles').update(data).eq('id', session.user.id);
-    alert(error ? error.message : 'Profile updated');
+    alert(error ? `Failed to update profile: ${error.message}` : 'Profile updated');
     if (!error) showPage('match-page');
   } catch (err) {
     console.error('Profile update error:', err);
-    alert('Failed to update profile. Please try again.');
+    alert(`Failed to update profile: ${err.message}`);
   }
 };
 
