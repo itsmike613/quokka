@@ -1,5 +1,5 @@
 const supabase = window.supabase.createClient('https://kaznegpcfzhbggqkebcw.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imthem5lZ3BjZnpoYmdncWtlYmN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3MDk5OTcsImV4cCI6MjA2NjI4NTk5N30.yszmi4z08iYdGLA0jwsix-pA3QMkjp-tcfyhF-LGMRs');
-let session, channel, currentMatchRequest, matchSubscription;
+let session, channel, currentMatchId;
 
 const topics = {
   'Sports': ['Basketball', 'Hockey', 'Soccer', 'Swimming'],
@@ -113,113 +113,74 @@ document.getElementById('desired-sex').onchange = () => {
   localStorage.setItem('desired_sex', document.getElementById('desired-sex').value);
 };
 
-let isMatching = false;
 document.getElementById('match-button').onclick = async () => {
-  const matchButton = document.getElementById('match-button');
-  matchButton.disabled = true; // Disable immediately to prevent rapid clicks
   if (!session) {
     alert('Please log in to continue.');
-    matchButton.disabled = false;
     return;
   }
-  if (isMatching) {
-    matchButton.disabled = false;
-    return;
-  }
-  isMatching = true;
-
   const desiredSex = document.getElementById('desired-sex').value;
   const selectedTopics = [...document.querySelectorAll('.bg-primary')].map(b => b.textContent);
 
   try {
-    // Clean up any existing unmatched requests
-    await supabase.from('match_requests')
+    // Remove user from match pool if already present
+    await supabase.from('match_pool')
       .delete()
-      .eq('user_id', session.user.id)
-      .is('matched_with', null);
+      .eq('user_id', session.user.id);
 
-    // Clean up any existing subscription
-    if (matchSubscription) {
-      await matchSubscription.unsubscribe();
-      matchSubscription = null;
-    }
-
-    // Insert new match request
-    const { data, error } = await supabase.from('match_requests')
+    // Add user to match pool
+    const { error: poolError } = await supabase.from('match_pool')
       .insert({
         user_id: session.user.id,
         desired_sex: desiredSex,
-        topics: selectedTopics.length ? selectedTopics : null,
-        participants: [session.user.id]
-      })
-      .select()
-      .single();
+        topics: selectedTopics.length ? selectedTopics : null
+      });
+    if (poolError) throw new Error(`Failed to join match pool: ${poolError.message}`);
 
-    if (error) throw new Error(`Match request insert error: ${error.message}`);
-
-    console.log('Inserted match request:', JSON.stringify(data, null, 2));
-    currentMatchRequest = data;
+    console.log('Joined match pool:', { user_id: session.user.id, desired_sex: desiredSex, topics: selectedTopics });
     showPage('loading-page');
 
-    // Try immediate match
-    const { data: matchId, error: matchError } = await supabase.rpc('find_match', {
-      current_mr_id: currentMatchRequest.id
+    // Try to find a match immediately
+    let { data: matchId, error: matchError } = await supabase.rpc('try_match', {
+      current_user_id: session.user.id,
+      desired_sex: desiredSex,
+      topics: selectedTopics.length ? selectedTopics : null
     });
-
-    if (matchError) throw new Error(`Find match error: ${matchError.message}`);
+    if (matchError) throw new Error(`Match error: ${matchError.message}`);
 
     if (matchId) {
+      currentMatchId = matchId;
       await startChat(matchId);
-    } else {
-      // Set up real-time subscription with timeout
-      const timeout = setTimeout(async () => {
-        if (matchSubscription) {
-          await matchSubscription.unsubscribe();
-          matchSubscription = null;
-        }
-        if (currentMatchRequest) {
-          await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id);
-          currentMatchRequest = null;
-        }
-        alert('No match found. Please try again.');
-        showPage('match-page');
-        isMatching = false;
-        matchButton.disabled = false;
-      }, 30000); // 30 seconds timeout
-
-      matchSubscription = supabase
-        .channel(`match_requests:${currentMatchRequest.id}`)
-        .on('postgres_changes', { 
-          event: 'UPDATE', 
-          schema: 'public', 
-          table: 'match_requests', 
-          filter: `id=eq.${currentMatchRequest.id}` 
-        }, async (payload) => {
-          if (payload.new.matched_with) {
-            clearTimeout(timeout);
-            if (matchSubscription) {
-              await matchSubscription.unsubscribe();
-              matchSubscription = null;
-            }
-            await startChat(payload.new.matched_with);
-          }
-        })
-        .subscribe();
+      return;
     }
+
+    // Poll for a match with timeout
+    const startTime = Date.now();
+    const timeoutMs = 30000; // 30 seconds
+    while (Date.now() - startTime < timeoutMs) {
+      ({ data: matchId, error: matchError } = await supabase.rpc('try_match', {
+        current_user_id: session.user.id,
+        desired_sex: desiredSex,
+        topics: selectedTopics.length ? selectedTopics : null
+      }));
+      if (matchError) throw new Error(`Match error: ${matchError.message}`);
+
+      if (matchId) {
+        currentMatchId = matchId;
+        await startChat(matchId);
+        return;
+      }
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retrying
+    }
+
+    // Timeout reached
+    await supabase.from('match_pool').delete().eq('user_id', session.user.id);
+    alert('No match found. Please try again.');
+    showPage('match-page');
   } catch (err) {
     console.error('Match process error:', err.message);
     alert(`Matching failed: ${err.message}`);
-    if (currentMatchRequest) {
-      await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id).catch(console.error);
-      currentMatchRequest = null;
-    }
-    if (matchSubscription) {
-      await matchSubscription.unsubscribe().catch(console.error);
-      matchSubscription = null;
-    }
+    await supabase.from('match_pool').delete().eq('user_id', session.user.id).catch(console.error);
     showPage('match-page');
-    isMatching = false;
-    matchButton.disabled = false;
   }
 };
 
@@ -227,24 +188,24 @@ async function startChat(matchId) {
   if (!session) {
     alert('Please log in to continue.');
     showPage('auth-page');
-    isMatching = false;
-    document.getElementById('match-button').disabled = false;
     return;
   }
   try {
     console.log('Starting chat with match ID:', matchId);
-    const { data: matchedMr, error: mrError } = await supabase
-      .from('match_requests')
-      .select('user_id')
+    const { data: match, error: matchError } = await supabase
+      .from('matches')
+      .select('user1_id, user2_id')
       .eq('id', matchId)
       .single();
-    if (mrError || !matchedMr) throw new Error(`Failed to fetch matched request: ${mrError?.message || 'No data'}`);
+    if (matchError || !match) throw new Error(`Failed to fetch match: ${matchError?.message || 'No data'}`);
 
-    console.log('Matched request:', matchedMr);
+    const matchedUserId = match.user1_id === session.user.id ? match.user2_id : match.user1_id;
+    console.log('Matched user ID:', matchedUserId);
+
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', matchedMr.user_id)
+      .eq('id', matchedUserId)
       .single();
     if (profileError || !profile) throw new Error(`Failed to fetch profile: ${profileError?.message || 'No data'}`);
 
@@ -254,7 +215,7 @@ async function startChat(matchId) {
     document.getElementById('matched-sex').textContent = profile.sex;
     document.getElementById('matched-age').textContent = profile.age;
 
-    const channelName = `chat:${Math.min(currentMatchRequest.id, matchId)}:${Math.max(currentMatchRequest.id, matchId)}`;
+    const channelName = `chat:${Math.min(session.user.id, matchedUserId)}:${Math.max(session.user.id, matchedUserId)}`;
     channel = supabase.channel(channelName);
     channel.on('broadcast', { event: 'message' }, ({ payload }) =>
       addMessage(payload.text, payload.user_id === session.user.id)
@@ -266,18 +227,11 @@ async function startChat(matchId) {
     });
     channel.subscribe();
     showPage('chat-page');
-    isMatching = false;
-    document.getElementById('match-button').disabled = false;
   } catch (err) {
     console.error('Start chat error:', err.message);
     alert(`Error starting chat: ${err.message}`);
-    if (currentMatchRequest) {
-      await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id).catch(console.error);
-      currentMatchRequest = null;
-    }
+    await supabase.from('matches').delete().eq('id', matchId).catch(console.error);
     showPage('match-page');
-    isMatching = false;
-    document.getElementById('match-button').disabled = false;
   }
 }
 
@@ -335,33 +289,17 @@ async function endChat() {
     return;
   }
   try {
-    if (currentMatchRequest) {
-      await supabase.from('match_requests').delete().eq('id', currentMatchRequest.id);
-      const { data: matchedMr, error: fetchError } = await supabase
-        .from('match_requests')
-        .select('matched_with')
-        .eq('id', currentMatchRequest.id)
-        .single();
-      if (fetchError) {
-        console.error('Error fetching matched request:', fetchError);
-      } else if (matchedMr?.matched_with) {
-        await supabase.from('match_requests').delete().eq('id', matchedMr.matched_with);
-      }
-      currentMatchRequest = null;
+    if (currentMatchId) {
+      await supabase.from('matches').delete().eq('id', currentMatchId);
+      currentMatchId = null;
     }
     if (channel) {
       await channel.unsubscribe();
       channel = null;
     }
-    if (matchSubscription) {
-      await matchSubscription.unsubscribe();
-      matchSubscription = null;
-    }
     document.getElementById('chat-messages').innerHTML = '';
     document.getElementById('message-input').disabled = false;
     document.getElementById('send-button').disabled = false;
-    isMatching = false;
-    document.getElementById('match-button').disabled = false;
   } catch (err) {
     console.error('Error during endChat:', err);
   }
