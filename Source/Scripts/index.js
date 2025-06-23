@@ -123,17 +123,14 @@ document.getElementById('match-button').onclick = async () => {
 
   try {
     // Remove user from match pool if already present
-    await supabase.from('match_pool')
-      .delete()
-      .eq('user_id', session.user.id);
+    await supabase.from('match_pool').delete().eq('user_id', session.user.id);
 
     // Add user to match pool
-    const { error: poolError } = await supabase.from('match_pool')
-      .insert({
-        user_id: session.user.id,
-        desired_sex: desiredSex,
-        topics: selectedTopics.length ? selectedTopics : null
-      });
+    const { error: poolError } = await supabase.from('match_pool').insert({
+      user_id: session.user.id,
+      desired_sex: desiredSex,
+      topics: selectedTopics.length ? selectedTopics : null
+    });
     if (poolError) throw new Error(`Failed to join match pool: ${poolError.message}`);
 
     console.log('Joined match pool:', { user_id: session.user.id, desired_sex: desiredSex, topics: selectedTopics });
@@ -141,9 +138,9 @@ document.getElementById('match-button').onclick = async () => {
 
     // Try to find a match immediately
     let { data: matchId, error: matchError } = await supabase.rpc('try_match', {
-      current_user_id: session.user.id,
-      desired_sex: desiredSex,
-      topics: selectedTopics.length ? selectedTopics : null
+      p_user_id: session.user.id,
+      p_desired_sex: desiredSex,
+      p_topics: selectedTopics.length ? selectedTopics : null
     });
     if (matchError) throw new Error(`Match error: ${matchError.message}`);
 
@@ -158,9 +155,9 @@ document.getElementById('match-button').onclick = async () => {
     const timeoutMs = 30000; // 30 seconds
     while (Date.now() - startTime < timeoutMs) {
       ({ data: matchId, error: matchError } = await supabase.rpc('try_match', {
-        current_user_id: session.user.id,
-        desired_sex: desiredSex,
-        topics: selectedTopics.length ? selectedTopics : null
+        p_user_id: session.user.id,
+        p_desired_sex: desiredSex,
+        p_topics: selectedTopics.length ? selectedTopics : null
       }));
       if (matchError) throw new Error(`Match error: ${matchError.message}`);
 
@@ -179,7 +176,7 @@ document.getElementById('match-button').onclick = async () => {
   } catch (err) {
     console.error('Match process error:', err.message);
     alert(`Matching failed: ${err.message}`);
-    await supabase.from('match_pool').delete().eq('user_id', session.user.id).catch(console.error);
+    await supabase.from('match_pool').delete().eq('user_id', session.user.id);
     showPage('match-page');
   }
 };
@@ -230,7 +227,7 @@ async function startChat(matchId) {
   } catch (err) {
     console.error('Start chat error:', err.message);
     alert(`Error starting chat: ${err.message}`);
-    await supabase.from('matches').delete().eq('id', matchId).catch(console.error);
+    await supabase.from('matches').delete().eq('id', matchId);
     showPage('match-page');
   }
 }
