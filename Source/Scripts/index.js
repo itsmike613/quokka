@@ -115,14 +115,18 @@ document.getElementById('desired-sex').onchange = () => {
 
 let isMatching = false;
 document.getElementById('match-button').onclick = async () => {
+  const matchButton = document.getElementById('match-button');
+  matchButton.disabled = true; // Disable immediately to prevent rapid clicks
   if (!session) {
     alert('Please log in to continue.');
+    matchButton.disabled = false;
     return;
   }
-  if (isMatching) return; // Prevent multiple clicks
+  if (isMatching) {
+    matchButton.disabled = false;
+    return;
+  }
   isMatching = true;
-  const matchButton = document.getElementById('match-button');
-  matchButton.disabled = true;
 
   const desiredSex = document.getElementById('desired-sex').value;
   const selectedTopics = [...document.querySelectorAll('.bg-primary')].map(b => b.textContent);
@@ -133,6 +137,12 @@ document.getElementById('match-button').onclick = async () => {
       .delete()
       .eq('user_id', session.user.id)
       .is('matched_with', null);
+
+    // Clean up any existing subscription
+    if (matchSubscription) {
+      await matchSubscription.unsubscribe();
+      matchSubscription = null;
+    }
 
     // Insert new match request
     const { data, error } = await supabase.from('match_requests')
@@ -150,12 +160,6 @@ document.getElementById('match-button').onclick = async () => {
     console.log('Inserted match request:', JSON.stringify(data, null, 2));
     currentMatchRequest = data;
     showPage('loading-page');
-
-    // Clean up any existing subscription
-    if (matchSubscription) {
-      await matchSubscription.unsubscribe();
-      matchSubscription = null;
-    }
 
     // Try immediate match
     const { data: matchId, error: matchError } = await supabase.rpc('find_match', {
@@ -258,7 +262,7 @@ async function startChat(matchId) {
     channel.on('broadcast', { event: 'user_left' }, () => {
       addMessage(`${profile.username} left the chat.`, false, true);
       document.getElementById('message-input').disabled = true;
-      document.getElementById('send-button').disabled = false;
+      document.getElementById('send-button').disabled = true;
     });
     channel.subscribe();
     showPage('chat-page');
