@@ -149,6 +149,12 @@ document.getElementById('match-button').onclick = async () => {
     currentMatchRequest = data;
     showPage('loading-page');
 
+    // Unsubscribe from any existing subscription
+    if (matchSubscription) {
+      matchSubscription.unsubscribe();
+      matchSubscription = null;
+    }
+
     // Trigger matching logic immediately
     const { data: matchId, error: matchError } = await supabase.rpc('find_match', {
       current_mr_id: currentMatchRequest.id
@@ -168,9 +174,15 @@ document.getElementById('match-button').onclick = async () => {
       // Set up real-time subscription if no match is found immediately
       matchSubscription = supabase
         .channel('match_requests')
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'match_requests', filter: `id=eq.${currentMatchRequest.id}` }, (payload) => {
+        .on('postgres_changes', { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'match_requests', 
+          filter: `id=eq.${currentMatchRequest.id}` 
+        }, (payload) => {
           if (payload.new.matched_with) {
             matchSubscription.unsubscribe();
+            matchSubscription = null;
             startChat(payload.new.matched_with);
           }
         })
