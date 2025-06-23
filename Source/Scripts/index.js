@@ -111,6 +111,9 @@ document.getElementById('match-button').onclick = async () => {
 	}
 	session = currentSession;
 
+	// Explicitly set the auth token
+	await supabase.auth.setAuth(session.access_token);
+
 	// Log auth user ID for debugging
 	const { data: { user }, error: userError } = await supabase.auth.getUser();
 	if (userError || !user) {
@@ -128,24 +131,13 @@ document.getElementById('match-button').onclick = async () => {
 	const { error: deleteError } = await supabase.from('match_pool').delete().eq('user_id', user.id);
 	if (deleteError) console.error('Delete match_pool error:', deleteError.message);
 
-	// Insert new match_pool entry with retry
-	let insertError;
-	for (let attempt = 1; attempt <= 3; attempt++) {
-		const { data, error } = await supabase
+	// Insert new match_pool entry
+	const { data, error } = await supabase
 		.from('match_pool')
 		.insert({ user_id: user.id, desired_sex: desiredSex, topics: selectedTopics || null })
 		.select();
-		if (!error) {
-		console.log('Match pool insert successful:', data);
-		break;
-		}
-		insertError = error;
-		console.error(`Insert attempt ${attempt} failed:`, error.message);
-		if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
-	}
-
-	if (insertError) {
-		alert(`Match pool error: ${insertError.message}`);
+	if (error) {
+		alert(`Match pool error: ${error.message}`);
 		return;
 	}
 
