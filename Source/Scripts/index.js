@@ -48,8 +48,7 @@ document.getElementById('create-form').onsubmit = async (e) => {
     email: form.email.value,
     password: form.password.value,
     age: parseInt(form.age.value),
-    sex: form.sex.value,
-    state: form.state.value
+    sex: form.sex.value
   };
 
   if (data.display_name.length < 3 || data.display_name.length > 16 ||
@@ -71,8 +70,7 @@ document.getElementById('create-form').onsubmit = async (e) => {
     display_name: data.display_name,
     username: data.username,
     age: data.age,
-    sex: data.sex,
-    state: data.state
+    sex: data.sex
   };
 
   const { error: profileError } = await supabase
@@ -223,7 +221,6 @@ async function startChat(matchId) {
   document.getElementById('matched-display-name').textContent = profile.display_name;
   document.getElementById('matched-username').textContent = profile.username;
   document.getElementById('matched-sex').textContent = profile.sex;
-  document.getElementById('matched-state').textContent = profile.state;
   document.getElementById('matched-age').textContent = profile.age;
 
   const channelName = `chat:${Math.min(currentMatchRequest.id, matchId)}:${Math.max(currentMatchRequest.id, matchId)}`;
