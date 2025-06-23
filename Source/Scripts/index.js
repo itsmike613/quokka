@@ -29,13 +29,16 @@ function loadMatchFormSettings() {
   });
 }
 
-async function init() {
-  const { data: { session: s }, error } = await supabase.auth.getSession();
-  if (error) console.error('Session fetch error:', error);
-  console.log('Initial session:', s ? 'Active' : 'None');
-  session = s;
-  showPage(session ? 'match-page' : 'auth-page');
-  if (session) loadMatchFormSettings();
+function init() {
+  supabase.auth.onAuthStateChange((event, newSession) => {
+    session = newSession;
+    if (newSession) {
+      showPage('match-page');
+      if (event === 'SIGNED_IN') loadMatchFormSettings();
+    } else {
+      showPage('auth-page');
+    }
+  });
 }
 init();
 
@@ -51,51 +54,39 @@ document.getElementById('create-form').onsubmit = async (e) => {
     sex: form.sex.value
   };
 
-  if (data.display_name.length < 3 || data.display_name.length > 16 ||
-    data.username.length < 3 || data.username.length > 16) {
+  if (data.display_name.length < 3 || data.display_name.length > 16 || 
+      data.username.length < 3 || data.username.length > 16) {
     return alert('Display Name and Username must be 3-16 characters');
   }
 
-  const { data: userData, error: signUpError } = await supabase.auth.signUp({
+  const { error: signUpError } = await supabase.auth.signUp({
     email: data.email,
     password: data.password
   });
+  if (signUpError) return alert(signUpError.message);
 
-  if (signUpError) {
-    return alert(signUpError.message);
-  }
-
-  const profileData = {
-    id: userData.user.id,
+  const { error: profileError } = await supabase.from('profiles').insert({
+    id: (await supabase.auth.getUser()).user.id,
     display_name: data.display_name,
     username: data.username,
     age: data.age,
     sex: data.sex
-  };
-
-  const { error: profileError } = await supabase
-    .from('profiles')
-    .insert(profileData);
+  });
 
   if (profileError) {
-    alert(`Failed to create profile: ${profileError.message}. Please try again.`);
+    alert(`Failed to create profile: ${profileError.message}`);
     await supabase.auth.signOut();
-  } else {
-    session = userData.session;
-    showPage('match-page');
   }
 };
 
-document.getElementById('login-form').onsubmit = async e => {
+document.getElementById('login-form').onsubmit = async (e) => {
   e.preventDefault();
   const form = e.target;
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase.auth.signInWithPassword({
     email: form['login-email'].value,
     password: form['login-password'].value
   });
-  if (error) return alert(error.message);
-  session = data.session;
-  showPage('match-page');
+  if (error) alert(error.message);
 };
 
 const topicsContainer = document.getElementById('topics-container');
@@ -184,11 +175,9 @@ document.getElementById('match-button').onclick = async () => {
   }, 2000);
 };
 
-async function startChat(matchId) {
+async function startChat() {
   if (!session) {
-    console.error('No active session. Redirecting to auth page.');
-    alert('Session expired. Please log in again.');
-    showPage('auth-page');
+    alert('Please log in to continue.');
     return;
   }
   console.log('Starting chat with match ID:', matchId);
@@ -344,6 +333,4 @@ document.getElementById('profile-form').onsubmit = async e => {
 
 document.getElementById('logout-button').onclick = async () => {
   await supabase.auth.signOut();
-  session = null;
-  showPage('auth-page');
 };
