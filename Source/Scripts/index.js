@@ -192,16 +192,25 @@ async function startChat(channelId, otherUserId) {
     matchChannel.unsubscribe();
   }
   
-  // Get profile (with fallback if needed)
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', otherUserId)
-    .single()
-    .catch(() => ({ data: {
-      display_name: 'Stranger',
-      username: 'user_' + otherUserId.slice(0, 8)
-    }}));
+  // Get profile with error handling
+  let profile = {
+    display_name: 'Stranger',
+    username: `user_${otherUserId.slice(0, 8)}`
+  };
+  
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('display_name, username')
+      .eq('id', otherUserId)
+      .single();
+    
+    if (!error && data) {
+      profile = data;
+    }
+  } catch (error) {
+    console.warn('Profile fetch failed, using fallback:', error);
+  }
 
   // Display profile
   document.getElementById('matched-display-name').textContent = profile.display_name;
@@ -210,8 +219,15 @@ async function startChat(channelId, otherUserId) {
   // Setup chat channel
   channel = supabase.channel(channelId);
   channel.on('broadcast', { event: 'message' }, ({ payload }) => {
-    addMessage(payload.text, payload.sender === session.user.id);
-  }).subscribe();
+    addMessage(payload.text, payload.user_id === session.user.id);
+  });
+  
+  channel.on('broadcast', { event: 'user_left' }, () => {
+    addMessage('Partner left the chat', false, true);
+    disableChat();
+  });
+  
+  channel.subscribe();
 
   showPage('chat-page');
 }
@@ -238,12 +254,14 @@ function addMessage(text, isSelf, isSystem = false) {
 // Send message handler
 document.getElementById('send-button').onclick = () => {
   const input = document.getElementById('message-input');
-  if (input.value.trim()) {
-    addMessage(input.value, true);
+  const message = input.value.trim();
+  
+  if (message) {
+    addMessage(message, true);
     channel.send({
       type: 'broadcast',
       event: 'message',
-      payload: { text: input.value, user_id: session.user.id }
+      payload: { text: message, user_id: session.user.id }
     });
     input.value = '';
   }
@@ -251,7 +269,9 @@ document.getElementById('send-button').onclick = () => {
 
 document.getElementById('skip-button').onclick = async () => {
   if (channel) {
+    channel.send({ type: 'broadcast', event: 'user_left' });
     channel.unsubscribe();
+    channel = null;
   }
   
   await supabase.from('matched_users')
@@ -267,16 +287,22 @@ document.getElementById('exit-button').onclick = async () => {
   if (channel) {
     channel.send({ type: 'broadcast', event: 'user_left' });
     channel.unsubscribe();
+    channel = null;
   }
   
-  // Remove from matched_users
-  await supabase.from('matched_users').delete().or(
-    `user1_id.eq.${session.user.id},user2_id.eq.${session.user.id}`
-  );
+  await supabase.from('matched_users')
+    .delete()
+    .or(`user1_id.eq.${session.user.id},user2_id.eq.${session.user.id}`);
   
   document.getElementById('chat-messages').innerHTML = '';
   showPage('match-page');
 };
+
+// Disable chat UI
+function disableChat() {
+  document.getElementById('message-input').disabled = true;
+  document.getElementById('send-button').disabled = true;
+}
 
 // Profile button handler
 document.getElementById('profile-button').onclick = async () => {
