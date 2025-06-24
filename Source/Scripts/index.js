@@ -1,5 +1,6 @@
 const supabase = window.supabase.createClient('https://cqmhugefopfideldbanr.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxbWh1Z2Vmb3BmaWRlbGRiYW5yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3MjM3NzUsImV4cCI6MjA2NjI5OTc3NX0.VjdEfzehdixgpJI8fv8OXjKvQnpa6P6rCYQvwb_6e48');
 let session, channel, currentChannelId, matchSettings;
+let matchSubscription = null;
 
 const topics = {
 	'Sports': ['Basketball', 'Hockey', 'Soccer', 'Swimming'],
@@ -175,6 +176,21 @@ document.getElementById('match-button').onclick = async () => {
   }
   
   showPage('loading-page');
+
+  matchSubscription = supabase
+    .channel('match-updates')
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'matched_users',
+      filter: `user1_id=eq.${session.user.id},user2_id=eq.${session.user.id}`
+    }, (payload) => {
+      // Start chat when match is found
+      startChat(payload.new.channel_id);
+    })
+    .subscribe();
+  
+  // Also start polling as fallback
   startPolling();
 };
 
@@ -185,6 +201,18 @@ async function startPolling() {
 
   const poll = async () => {
     attempts++;
+    
+    // Check if we're already matched
+    const { data: match, error: matchError } = await supabase
+      .from('matched_users')
+      .select('channel_id')
+      .or(`user1_id.eq.${session.user.id},user2_id.eq.${session.user.id}`)
+      .maybeSingle();
+    
+    if (!matchError && match) {
+      startChat(match.channel_id);
+      return;
+    }
     
     // Refresh session every 3 attempts
     if (attempts % 3 === 0) {
@@ -227,6 +255,12 @@ async function startPolling() {
 
 // Updated startChat function
 async function startChat(channelId) {
+  // Unsubscribe from match updates first
+  if (matchSubscription) {
+    matchSubscription.unsubscribe();
+    matchSubscription = null;
+  }
+  
   currentChannelId = channelId;
   
   const { data: pair, error: pairError } = await supabase
@@ -294,15 +328,23 @@ async function startChat(channelId) {
 }
 
 async function cleanupAfterFailedMatch() {
+  // Unsubscribe from match updates
+  if (matchSubscription) {
+    matchSubscription.unsubscribe();
+    matchSubscription = null;
+  }
+  
   // Remove from match pool
   await supabase.from('match_pool')
     .delete()
-    .eq('user_id', session.user.id);
+    .eq('user_id', session.user.id)
+    .then(() => console.log('Cleaned from match pool'));
   
   // Remove from matched_users
   await supabase.from('matched_users')
     .delete()
-    .or(`user1_id.eq.${session.user.id},user2_id.eq.${session.user.id}`);
+    .or(`user1_id.eq.${session.user.id},user2_id.eq.${session.user.id}`)
+    .then(() => console.log('Cleaned from matched users'));
   
   // Reset UI
   document.getElementById('chat-messages').innerHTML = '';
