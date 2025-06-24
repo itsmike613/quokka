@@ -122,14 +122,29 @@ document.getElementById('desired-sex').onchange = () => {
 };
 
 // Match button handler
+// Match button handler - with session refresh
 document.getElementById('match-button').onclick = async () => {
+	// Refresh session first
+	const { data: { session: freshSession }, error: refreshError } = await supabase.auth.refreshSession();
+	if (refreshError || !freshSession) {
+		alert('Session expired. Please log in again.');
+		await supabase.auth.signOut();
+		showPage('auth-page');
+		return;
+	}
+	session = freshSession;
+
 	const desiredSex = document.getElementById('desired-sex').value;
 	const selectedTopics = [...document.querySelectorAll('.bg-primary')].map(b => b.textContent);
 
 	matchSettings = { desiredSex, selectedTopics };
 
-	await supabase.from('match_pool').delete().eq('user_id', session.user.id);
+	// Clear any existing pool entry
+	const { error: deleteError } = await supabase.from('match_pool')
+		.delete()
+	if (deleteError) console.error('Cleanup error:', deleteError);
 
+	// Join match pool
 	const { error: poolError } = await supabase.from('match_pool').insert({
 		user_id: session.user.id,
 		desired_sex: desiredSex,
@@ -138,33 +153,57 @@ document.getElementById('match-button').onclick = async () => {
 
 	if (poolError) {
 		console.error('Pool join error:', poolError);
-		return alert('Failed to join match pool');
+		alert('Failed to join match pool. Please try again.');
+		return;
 	}
 
 	showPage('loading-page');
 	startPolling();
 };
 
-// Poll for matches
+// Improved polling with backoff and timeout
 async function startPolling() {
-	const poll = setInterval(async () => {
+	let attempts = 0;
+	const maxAttempts = 30; // 5 minutes (30 * 10s)
+	const baseInterval = 10000; // 10 seconds
+
+	const poll = async () => {
+		attempts++;
+
+		// Refresh session periodically
+		if (attempts % 3 === 0) {
+			const { data: { session: freshSession } } = await supabase.auth.refreshSession();
+			if (freshSession) session = freshSession;
+		}
+
 		const { data: channelId, error } = await supabase.rpc('find_match', {
-			p_user_id: session.user.id  // Changed parameter name
+			p_user_id: session.user.id
 		});
 
 		if (error) {
 			console.error('Match error:', error);
-			clearInterval(poll);
-			alert('Matching error. Please try again.');
-			showPage('match-page');
+			if (attempts >= maxAttempts) {
+				alert('Matching timed out. Please try again.');
+				await supabase.from('match_pool').delete().eq('user_id', session.user.id);
+				showPage('match-page');
+			}
 			return;
 		}
 
 		if (channelId) {
-			clearInterval(poll);
 			startChat(channelId);
+		} else if (attempts < maxAttempts) {
+			// Exponential backoff: 10s, 20s, 30s, etc.
+			setTimeout(poll, baseInterval + (attempts * 1000));
+		} else {
+			alert('No match found. Please try again.');
+			await supabase.from('match_pool').delete().eq('user_id', session.user.id);
+			showPage('match-page');
 		}
-	}, 2000);
+	};
+
+	// Initial poll
+	setTimeout(poll, baseInterval);
 }
 
 // Start chat with matched user
