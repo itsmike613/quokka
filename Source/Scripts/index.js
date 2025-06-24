@@ -1,4 +1,4 @@
-const supabase = window.supabase.createClient('https://cqmhugefopfideldbanr.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxbWh1Z2Vmb3BmaWRlbGRiYW5yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3MjM3NzUsImV4cCI6MjA2NjI5OTc3NX0.VjdEfzehdixgpJI8fv8OXjKvQnpa6P6rCYQvwb_6e48');
+const supabase = window.supabase.createClient('https://evnmqklbbmltrgdyiuzv.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2bm1xa2xiYm1sdHJnZHlpdXp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3MzQ0ODgsImV4cCI6MjA2NjMxMDQ4OH0.tZYH_6GWh0yJANuf3tNVOgABj6HBNeYLTcyqL4lKaEY');
 let session, channel, currentMatch;
 let matchChannel;
 
