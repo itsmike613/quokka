@@ -141,7 +141,7 @@ document.getElementById('match-button').onclick = async () => {
 };
 
 async function findMatch() {
-  // Create a unique channel for match updates
+  // Create unique channel for match updates
   matchChannel = supabase.channel(`match_updates_${session.user.id}`);
   
   // Listen for match notifications
@@ -161,14 +161,17 @@ async function findMatch() {
         clearInterval(poll);
         const { matched_user_id, channel_id } = data[0];
         
-        // Notify both users
+        // Notify the other user
         const notifyChannel = supabase.channel(`match_updates_${matched_user_id}`);
         notifyChannel.subscribe((status) => {
           if (status === 'SUBSCRIBED') {
             notifyChannel.send({
               type: 'broadcast',
               event: 'matched',
-              payload: { channel_id, other_user_id: session.user.id }
+              payload: { 
+                channel_id, 
+                other_user_id: session.user.id 
+              }
             });
           }
         });
