@@ -1,7 +1,5 @@
 const supabase = window.supabase.createClient('https://cqmhugefopfideldbanr.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxbWh1Z2Vmb3BmaWRlbGRiYW5yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3MjM3NzUsImV4cCI6MjA2NjI5OTc3NX0.VjdEfzehdixgpJI8fv8OXjKvQnpa6P6rCYQvwb_6e48');
-let session, channel, currentChannelId, matchSettings;
-let matchSubscription = null;
-let isMatching = false; // Track matching state
+let session, channel, currentMatch;
 
 const topics = {
   'Sports': ['Basketball', 'Hockey', 'Soccer', 'Swimming'],
@@ -14,12 +12,6 @@ async function init() {
   session = currentSession;
   showPage(session ? 'match-page' : 'auth-page');
   if (session) loadMatchFormSettings();
-}
-
-// Toggle between auth forms
-function toggleAuth() {
-  document.getElementById('create-form').classList.toggle('d-none');
-  document.getElementById('login-form').classList.toggle('d-none');
 }
 
 // Show specific page
@@ -123,64 +115,13 @@ document.getElementById('desired-sex').onchange = () => {
   localStorage.setItem('desired_sex', document.getElementById('desired-sex').value);
 };
 
-// Improved session refresh function
-async function refreshSession() {
-  try {
-    const { data: { session: freshSession }, error } = await supabase.auth.refreshSession();
-    if (error) throw error;
-    if (freshSession) {
-      session = freshSession;
-      return true;
-    }
-    return false;
-  } catch (error) {
-    console.error('Session refresh failed:', error);
-    return false;
-  }
-}
-
-// Ensure user is removed from all matching tables
-async function ensureCleanState() {
-  try {
-    // Remove from match pool
-    await supabase.from('match_pool')
-      .delete()
-      .eq('user_id', session.user.id);
-    
-    // Remove from matched_users
-    await supabase.from('matched_users')
-      .delete()
-      .or(`user1_id.eq.${session.user.id},user2_id.eq.${session.user.id}`);
-    
-    console.log('Clean state ensured');
-  } catch (error) {
-    console.error('Clean state error:', error);
-  }
-}
-
-// Updated match button handler
+// Match button handler
 document.getElementById('match-button').onclick = async () => {
-  if (isMatching) return;
-  isMatching = true;
-  
-  // Ensure valid session
-  if (!session || session.expires_at < Date.now() / 1000) {
-    if (!await refreshSession()) {
-      alert('Session expired. Please log in again.');
-      await supabase.auth.signOut();
-      showPage('auth-page');
-      isMatching = false;
-      return;
-    }
-  }
-
-  // Clean up any previous state
-  await ensureCleanState();
-
   const desiredSex = document.getElementById('desired-sex').value;
   const selectedTopics = [...document.querySelectorAll('.bg-primary')].map(b => b.textContent);
   
-  matchSettings = { desiredSex, selectedTopics };
+  // Clear any existing pool entry
+  await supabase.from('match_pool').delete().eq('user_id', session.user.id);
   
   // Join match pool
   const { error: poolError } = await supabase.from('match_pool').insert({
@@ -191,147 +132,70 @@ document.getElementById('match-button').onclick = async () => {
   
   if (poolError) {
     console.error('Pool join error:', poolError);
-    alert(`Failed to join match pool: ${poolError.message}. Please try again.`);
-    isMatching = false;
-    return;
+    return alert('Failed to join match pool');
   }
   
   showPage('loading-page');
-
-  // Setup realtime match listener
-  matchSubscription = supabase
-    .channel('match-updates')
-    .on('postgres_changes', {
-      event: 'INSERT',
-      schema: 'public',
-      table: 'matched_users',
-      filter: `user1_id=eq.${session.user.id},user2_id=eq.${session.user.id}`
-    }, (payload) => {
-      startChat(payload.new.channel_id);
-    })
-    .subscribe();
-  
-  // Start polling as fallback
-  startPolling();
+  findMatch();
 };
 
-// Robust polling with backoff
-async function startPolling() {
-  let attempts = 0;
-  const maxAttempts = 30;
-  const baseDelay = 5000;
-
-  const poll = async () => {
-    if (!isMatching) return;
+// Find match
+async function findMatch() {
+  const poll = setInterval(async () => {
+    const { data: matchedUserId, error } = await supabase.rpc('find_match', {
+      current_user_id: session.user.id
+    });
     
-    attempts++;
-    
-    // Check if we're already matched
-    const { data: match, error: matchError } = await supabase
-      .from('matched_users')
-      .select('channel_id')
-      .or(`user1_id.eq.${session.user.id},user2_id.eq.${session.user.id}`)
-      .maybeSingle();
-    
-    if (!matchError && match) {
-      startChat(match.channel_id);
+    if (error) {
+      console.error('Match error:', error);
+      clearInterval(poll);
+      alert('Matching error. Please try again.');
+      showPage('match-page');
       return;
     }
     
-    // Refresh session every 3 attempts
-    if (attempts % 3 === 0) {
-      await refreshSession();
+    if (matchedUserId) {
+      clearInterval(poll);
+      startChat(matchedUserId);
     }
-    
-    try {
-      const { data: channelId, error } = await supabase.rpc('find_match', {
-        p_user_id: session.user.id
-      });
-      
-      if (error) throw error;
-      
-      if (channelId) {
-        startChat(channelId);
-        return;
-      }
-      
-      if (attempts >= maxAttempts) {
-        throw new Error('No match found after 5 minutes');
-      }
-      
-      // Backoff: 5s, 7s, 9s, 11s...
-      setTimeout(poll, baseDelay + (attempts * 2000));
-    } catch (error) {
-      console.error('Polling error:', error);
-      
-      alert(attempts >= maxAttempts ? 
-        'Matching timed out. Please try again.' : 
-        `Matching error: ${error.message}`);
-      
-      await cleanupAfterFailedMatch();
-      showPage('match-page');
-    }
-  };
-  
-  // Start polling
-  poll();
+  }, 3000);
 }
 
 // Start chat with matched user
-async function startChat(channelId) {
-  isMatching = false;
-  
-  // Unsubscribe from match updates first
-  if (matchSubscription) {
-    matchSubscription.unsubscribe();
-    matchSubscription = null;
-  }
-  
-  currentChannelId = channelId;
-  
-  const { data: pair, error: pairError } = await supabase
-    .from('matched_users')
-    .select('user1_id, user2_id')
-    .eq('channel_id', channelId)
+async function startChat(matchedUserId) {
+  // Get matched user's profile
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', matchedUserId)
     .single();
     
-  if (pairError || !pair) {
-    console.error('Pair fetch error:', pairError);
-    alert('Error starting chat. Returning to match page.');
-    await cleanupAfterFailedMatch();
+  if (error) {
+    console.error('Profile fetch error:', error);
+    alert('Error loading match profile');
     showPage('match-page');
     return;
   }
   
-  const otherUserId = pair.user1_id === session.user.id ? 
-    pair.user2_id : pair.user1_id;
-    
-  // Get profile with fallback
-  let profileData = {
-    display_name: 'Anonymous',
-    username: 'user_' + otherUserId.substring(0, 8),
-    sex: 'Unknown',
-    age: '?'
+  // Store match info
+  currentMatch = {
+    userId: matchedUserId,
+    displayName: profile.display_name,
+    username: profile.username,
+    sex: profile.sex,
+    age: profile.age
   };
   
-  try {
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', otherUserId)
-      .maybeSingle();
-      
-    if (!error && profile) {
-      profileData = profile;
-    }
-  } catch (e) {
-    console.warn('Profile fetch failed, using fallback:', e);
-  }
+  // Display matched user info
+  document.getElementById('matched-display-name').textContent = profile.display_name;
+  document.getElementById('matched-username').textContent = profile.username;
+  document.getElementById('matched-sex').textContent = profile.sex;
+  document.getElementById('matched-age').textContent = profile.age;
   
-  document.getElementById('matched-display-name').textContent = profileData.display_name;
-  document.getElementById('matched-username').textContent = profileData.username;
-  document.getElementById('matched-sex').textContent = profileData.sex;
-  document.getElementById('matched-age').textContent = profileData.age;
+  // Create channel ID based on sorted user IDs
+  const user1 = session.user.id < matchedUserId ? session.user.id : matchedUserId;
+  const user2 = session.user.id < matchedUserId ? matchedUserId : session.user.id;
+  const channelId = `chat:${user1}:${user2}`;
   
   // Setup realtime channel
   channel = supabase.channel(channelId);
@@ -340,34 +204,12 @@ async function startChat(channelId) {
   );
   channel.on('broadcast', { event: 'user_left' }, () => {
     addMessage('Your partner left the chat', false, true);
-    disableChat();
-  });
-  channel.on('presence', { event: 'sync' }, () => {
-    if (channel.presenceState().length < 2) {
-      addMessage('Your partner disconnected', false, true);
-      disableChat();
-    }
+    document.getElementById('message-input').disabled = true;
+    document.getElementById('send-button').disabled = true;
   });
   channel.subscribe();
   
   showPage('chat-page');
-}
-
-// Cleanup after failed match
-async function cleanupAfterFailedMatch() {
-  isMatching = false;
-  
-  // Unsubscribe from match updates
-  if (matchSubscription) {
-    matchSubscription.unsubscribe();
-    matchSubscription = null;
-  }
-  
-  // Clean up database state
-  await ensureCleanState();
-  
-  // Reset UI
-  document.getElementById('chat-messages').innerHTML = '';
 }
 
 // Add message to chat UI
@@ -408,16 +250,14 @@ document.getElementById('skip-button').onclick = async () => {
   if (channel) {
     channel.send({ type: 'broadcast', event: 'user_left' });
     channel.unsubscribe();
-    channel = null;
   }
-
-  // Clean up current match
-  await supabase.from('matched_users').delete().eq('channel_id', currentChannelId);
   
-  // Reset UI
-  document.getElementById('chat-messages').innerHTML = '';
+  // Remove from matched_users
+  await supabase.from('matched_users').delete().or(
+    `user1_id.eq.${session.user.id},user2_id.eq.${session.user.id}`
+  );
   
-  // Restart matching process
+  // Rejoin match pool
   document.getElementById('match-button').click();
 };
 
@@ -426,23 +266,16 @@ document.getElementById('exit-button').onclick = async () => {
   if (channel) {
     channel.send({ type: 'broadcast', event: 'user_left' });
     channel.unsubscribe();
-    channel = null;
   }
-
-  // Clean up current match
-  await supabase.from('matched_users').delete().eq('channel_id', currentChannelId);
   
-  // Reset UI
+  // Remove from matched_users
+  await supabase.from('matched_users').delete().or(
+    `user1_id.eq.${session.user.id},user2_id.eq.${session.user.id}`
+  );
+  
   document.getElementById('chat-messages').innerHTML = '';
-  
   showPage('match-page');
 };
-
-// Disable chat UI
-function disableChat() {
-  document.getElementById('message-input').disabled = true;
-  document.getElementById('send-button').disabled = true;
-}
 
 // Profile button handler
 document.getElementById('profile-button').onclick = async () => {
@@ -461,12 +294,12 @@ document.getElementById('profile-form').onsubmit = async e => {
     display_name: form['profile-display-name'].value,
     username: form['profile-username'].value
   };
-
+  
   if (data.display_name.length < 3 || data.display_name.length > 16 ||
     data.username.length < 3 || data.username.length > 16) {
     return alert('Display Name and Username must be 3-16 characters');
   }
-
+  
   const { error } = await supabase.from('profiles').update(data).eq('id', session.user.id);
   alert(error ? error.message : 'Profile updated');
   if (!error) showPage('match-page');
@@ -475,7 +308,10 @@ document.getElementById('profile-form').onsubmit = async e => {
 // Logout handler
 document.getElementById('logout-button').onclick = async () => {
   // Clean up before logout
-  await cleanupAfterFailedMatch();
+  await supabase.from('match_pool').delete().eq('user_id', session.user.id);
+  await supabase.from('matched_users').delete().or(
+    `user1_id.eq.${session.user.id},user2_id.eq.${session.user.id}`
+  );
   
   await supabase.auth.signOut();
   session = null;
