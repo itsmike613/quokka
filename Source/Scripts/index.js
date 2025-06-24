@@ -192,12 +192,8 @@ async function startChat(channelId, otherUserId) {
     matchChannel.unsubscribe();
   }
   
-  // Get profile with error handling
-  let profile = {
-    display_name: 'Stranger',
-    username: `user_${otherUserId.slice(0, 8)}`
-  };
-  
+  // Get profile with proper error handling
+  let profile;
   try {
     const { data, error } = await supabase
       .from('profiles')
@@ -205,11 +201,15 @@ async function startChat(channelId, otherUserId) {
       .eq('id', otherUserId)
       .single();
     
-    if (!error && data) {
-      profile = data;
-    }
+    if (error) throw error;
+    profile = data;
   } catch (error) {
-    console.warn('Profile fetch failed, using fallback:', error);
+    console.error('Profile fetch error:', error);
+    // Get the user's actual ID as fallback
+    profile = {
+      display_name: `User ${otherUserId.slice(0, 8)}`,
+      username: `user_${otherUserId.slice(0, 8)}`
+    };
   }
 
   // Display profile
@@ -217,16 +217,38 @@ async function startChat(channelId, otherUserId) {
   document.getElementById('matched-username').textContent = profile.username;
 
   // Setup chat channel
-  channel = supabase.channel(channelId);
+  channel = supabase.channel(channelId, {
+    config: {
+      presence: {
+        key: session.user.id
+      }
+    }
+  });
+  
+  // Message handler
   channel.on('broadcast', { event: 'message' }, ({ payload }) => {
     addMessage(payload.text, payload.user_id === session.user.id);
   });
   
+  // User left handler
   channel.on('broadcast', { event: 'user_left' }, () => {
     addMessage('Partner left the chat', false, true);
     disableChat();
   });
   
+  // Presence tracking
+  channel.on('presence', { event: 'sync' }, () => {
+    const state = channel.presenceState();
+    const otherUserPresent = Object.keys(state).some(key => key !== session.user.id);
+    
+    if (!otherUserPresent) {
+      addMessage('Partner disconnected', false, true);
+      disableChat();
+    }
+  });
+  
+  // Track user presence
+  channel.track({ online_at: new Date().toISOString() });
   channel.subscribe();
 
   showPage('chat-page');
