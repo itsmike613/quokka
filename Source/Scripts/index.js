@@ -149,7 +149,7 @@ document.getElementById('match-button').onclick = async () => {
 async function startPolling() {
 	const poll = setInterval(async () => {
 		const { data: channelId, error } = await supabase.rpc('find_match', {
-			user_id: session.user.id
+			p_user_id: session.user.id  // Changed parameter name
 		});
 
 		if (error) {
@@ -180,10 +180,13 @@ async function startChat(channelId) {
 	if (pairError || !pair) {
 		console.error('Pair fetch error:', pairError);
 		alert('Error starting chat');
-		return showPage('match-page');
+		showPage('match-page');
+		return;
 	}
 
-	const otherUserId = pair.user1_id === session.user.id ? pair.user2_id : pair.user1_id;
+	const otherUserId = pair.user1_id === session.user.id ?
+		pair.user2_id : pair.user1_id;
+
 	const { data: profile, error: profileError } = await supabase
 		.from('profiles')
 		.select('*')
@@ -193,14 +196,17 @@ async function startChat(channelId) {
 	if (profileError || !profile) {
 		console.error('Profile fetch error:', profileError);
 		alert('Error loading match profile');
-		return showPage('match-page');
+		showPage('match-page');
+		return;
 	}
 
+	// Display matched user info
 	document.getElementById('matched-display-name').textContent = profile.display_name;
 	document.getElementById('matched-username').textContent = profile.username;
 	document.getElementById('matched-sex').textContent = profile.sex;
 	document.getElementById('matched-age').textContent = profile.age;
 
+	// Setup realtime channel
 	channel = supabase.channel(channelId);
 	channel.on('broadcast', { event: 'message' }, ({ payload }) =>
 		addMessage(payload.text, payload.user_id === session.user.id)
@@ -208,6 +214,11 @@ async function startChat(channelId) {
 	channel.on('broadcast', { event: 'user_left' }, () => {
 		addMessage('Your partner left the chat', false, true);
 		disableChat();
+	});
+	channel.on('presence', { event: 'sync' }, () => {
+		if (channel.presenceState().length < 2) {
+			addMessage('Your partner disconnected', false, true);
+		}
 	});
 	channel.subscribe();
 
