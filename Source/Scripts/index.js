@@ -179,112 +179,133 @@ document.getElementById('match-button').onclick = async () => {
 };
 
 async function startPolling() {
-let attempts = 0;
-const maxAttempts = 30; // 5 minutes max
-const baseDelay = 5000; // 5 seconds base delay
+  let attempts = 0;
+  const maxAttempts = 30;
+  const baseDelay = 5000;
 
-const poll = async () => {
-	attempts++;
-	
-	// Refresh session every 3 attempts
-	if (attempts % 3 === 0) {
-	await refreshSession();
-	}
-	
-	try {
-	const { data: channelId, error } = await supabase.rpc('find_match', {
-		p_user_id: session.user.id
-	});
-	
-	if (error) throw error;
-	
-	if (channelId) {
-		startChat(channelId);
-		return;
-	}
-	
-	if (attempts >= maxAttempts) {
-		throw new Error('No match found');
-	}
-	
-	// Backoff: 5s, 7s, 9s, 11s...
-	setTimeout(poll, baseDelay + (attempts * 2000));
-	} catch (error) {
-	console.error('Polling error:', error);
-	
-	// Cleanup
-	await supabase.from('match_pool')
-		.delete()
-		.eq('user_id', session.user.id);
-	
-	alert(attempts >= maxAttempts ? 
-		'Matching timed out. Please try again.' : 
-		`Error: ${error.message}. Please try again.`);
-	
-	showPage('match-page');
-	}
-};
-
-// Start polling
-poll();
+  const poll = async () => {
+    attempts++;
+    
+    // Refresh session every 3 attempts
+    if (attempts % 3 === 0) {
+      await refreshSession();
+    }
+    
+    try {
+      const { data: channelId, error } = await supabase.rpc('find_match', {
+        p_user_id: session.user.id
+      });
+      
+      if (error) throw error;
+      
+      if (channelId) {
+        startChat(channelId);
+        return;
+      }
+      
+      if (attempts >= maxAttempts) {
+        throw new Error('No match found after 5 minutes');
+      }
+      
+      // Backoff: 5s, 7s, 9s, 11s...
+      setTimeout(poll, baseDelay + (attempts * 2000));
+    } catch (error) {
+      console.error('Polling error:', error);
+      await cleanupAfterFailedMatch();
+      
+      alert(attempts >= maxAttempts ? 
+        'Matching timed out. Please try again.' : 
+        `Matching error: ${error.message}`);
+      
+      showPage('match-page');
+    }
+  };
+  
+  // Start polling
+  poll();
 }
 
-// Start chat with matched user
+// Updated startChat function
 async function startChat(channelId) {
-	currentChannelId = channelId;
+  currentChannelId = channelId;
+  
+  const { data: pair, error: pairError } = await supabase
+    .from('matched_users')
+    .select('user1_id, user2_id')
+    .eq('channel_id', channelId)
+    .single();
+    
+  if (pairError || !pair) {
+    console.error('Pair fetch error:', pairError);
+    alert('Error starting chat. Returning to match page.');
+    await cleanupAfterFailedMatch();
+    showPage('match-page');
+    return;
+  }
+  
+  const otherUserId = pair.user1_id === session.user.id ? 
+    pair.user2_id : pair.user1_id;
+    
+  // Get profile with fallback
+  let profileData = {
+    display_name: 'Anonymous',
+    username: 'user_' + otherUserId.substring(0, 8),
+    sex: 'Unknown',
+    age: '?'
+  };
+  
+  try {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', otherUserId)
+      .maybeSingle(); // Use maybeSingle to handle missing profiles
+      
+    if (!error && profile) {
+      profileData = profile;
+    }
+  } catch (e) {
+    console.warn('Profile fetch failed, using fallback:', e);
+  }
+  
+  document.getElementById('matched-display-name').textContent = profileData.display_name;
+  document.getElementById('matched-username').textContent = profileData.username;
+  document.getElementById('matched-sex').textContent = profileData.sex;
+  document.getElementById('matched-age').textContent = profileData.age;
+  
+  // Setup realtime channel
+  channel = supabase.channel(channelId);
+  channel.on('broadcast', { event: 'message' }, ({ payload }) => 
+    addMessage(payload.text, payload.user_id === session.user.id)
+  );
+  channel.on('broadcast', { event: 'user_left' }, () => {
+    addMessage('Your partner left the chat', false, true);
+    disableChat();
+  });
+  channel.on('presence', { event: 'sync' }, () => {
+    if (channel.presenceState().length < 2) {
+      addMessage('Your partner disconnected', false, true);
+      disableChat();
+    }
+  });
+  channel.subscribe();
+  
+  showPage('chat-page');
+}
 
-	const { data: pair, error: pairError } = await supabase
-		.from('matched_users')
-		.select('user1_id, user2_id')
-		.eq('channel_id', channelId)
-		.single();
-
-	if (pairError || !pair) {
-		console.error('Pair fetch error:', pairError);
-		alert('Error starting chat');
-		showPage('match-page');
-		return;
-	}
-
-	const otherUserId = pair.user1_id === session.user.id ?
-		pair.user2_id : pair.user1_id;
-
-	const { data: profile, error: profileError } = await supabase
-		.from('profiles')
-		.select('*')
-		.eq('id', otherUserId)
-		.single();
-
-	if (profileError || !profile) {
-		console.error('Profile fetch error:', profileError);
-		alert('Error loading match profile');
-		showPage('match-page');
-		return;
-	}
-
-	// Display matched user info
-	document.getElementById('matched-display-name').textContent = profile.display_name;
-	document.getElementById('matched-username').textContent = profile.username;
-	document.getElementById('matched-sex').textContent = profile.sex;
-	document.getElementById('matched-age').textContent = profile.age;
-
-	// Setup realtime channel
-	channel = supabase.channel(channelId);
-	channel.on('broadcast', { event: 'message' }, ({ payload }) =>
-		addMessage(payload.text, payload.user_id === session.user.id)
-	);
-	channel.on('broadcast', { event: 'user_left' }, () => {
-		addMessage('Your partner left the chat', false, true);
-		disableChat();
-	});
-	channel.on('presence', { event: 'sync' }, () => {
-		if (channel.presenceState().length < 2) {
-			addMessage('Your partner disconnected', false, true);
-		}
-	});
-	channel.subscribe();
-
-	showPage('chat-page');
+async function cleanupAfterFailedMatch() {
+  // Remove from match pool
+  await supabase.from('match_pool')
+    .delete()
+    .eq('user_id', session.user.id);
+  
+  // Remove from matched_users
+  await supabase.from('matched_users')
+    .delete()
+    .or(`user1_id.eq.${session.user.id},user2_id.eq.${session.user.id}`);
+  
+  // Reset UI
+  document.getElementById('chat-messages').innerHTML = '';
 }
 
 // Add message to chat UI
