@@ -1,4 +1,4 @@
-const supabase = window.supabase.createClient('https://zbxhxqqdnrwrxtjufpgz.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpieGh4cXFkbnJ3cnh0anVmcGd6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4MTQ5MDksImV4cCI6MjA2NjM5MDkwOX0.ehSHXcp3Z5rxrmHSOl-k71WmI70EYZxaG9rxKasQZI4');
+const supabase = window.supabase.createClient('https://foleiwieznjphcrntbai.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZvbGVpd2llem5qcGhjcm50YmFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4MTcyMjUsImV4cCI6MjA2NjM5MzIyNX0.sRudJuc3BbXNZEqoVBB8lGwPy5cYMtCljrFV56yDv_8');
 let session, channel, currentMatchRequest;
 
 function toggleAuth() {
