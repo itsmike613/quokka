@@ -1,371 +1,208 @@
-const supabase = window.supabase.createClient('https://evnmqklbbmltrgdyiuzv.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2bm1xa2xiYm1sdHJnZHlpdXp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3MzQ0ODgsImV4cCI6MjA2NjMxMDQ4OH0.tZYH_6GWh0yJANuf3tNVOgABj6HBNeYLTcyqL4lKaEY');
-let session, channel, currentMatch;
-let matchChannel;
+// Supabase client (replace with your credentials)
+const SUPABASE_URL = 'https://tbypaeavdibkbirujfws.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRieXBhZWF2ZGlia2JpcnVqZndzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4MTE0MjIsImV4cCI6MjA2NjM4NzQyMn0.NY9aOkTzrd1vFrYBtqK3QDzUlCYXPodP4zJxyMKORfY';
+const supabase = new SupabaseClient(SUPABASE_URL, SUPABASE_KEY);
 
-const topics = {
-  'Sports': ['Basketball', 'Hockey', 'Soccer', 'Swimming'],
-  'Games': ['Call of Duty', 'Valorant', 'Minecraft', 'Roblox']
+// DOM elements
+const pages = {
+  auth: document.getElementById('auth-page'),
+  match: document.getElementById('match-page'),
+  chat: document.getElementById('chat-page'),
+  profile: document.getElementById('profile-page')
 };
+const forms = {
+  create: document.getElementById('create-account-form').querySelector('form'),
+  login: document.getElementById('login-form').querySelector('form'),
+  profile: document.getElementById('profile-page').querySelector('form')
+};
+const buttons = {
+  match: document.getElementById('match-button'),
+  send: document.getElementById('send-button'),
+  skip: document.getElementById('skip-button'),
+  exit: document.getElementById('exit-button'),
+  logout: document.getElementById('logout-button')
+};
+const profileLink = document.getElementById('profile-link');
 
-// Initialize app
-async function init() {
-  const { data: { session: currentSession }, error } = await supabase.auth.getSession();
-  session = currentSession;
-  showPage(session ? 'match-page' : 'auth-page');
-  if (session) loadMatchFormSettings();
+let currentUser = null;
+let matchedUser = null;
+let subscription = null;
+
+// Show page
+function showPage(page) {
+  Object.values(pages).forEach(p => p.style.display = 'none');
+  pages[page].style.display = 'block';
 }
 
-// Show specific page
-function showPage(pageId) {
-  document.querySelectorAll('.page').forEach(page => page.style.display = 'none');
-  document.getElementById(pageId).style.display = 'block';
-}
-
-// Load saved match settings
-function loadMatchFormSettings() {
-  const savedSex = localStorage.getItem('desired_sex') || 'Either';
-  document.getElementById('desired-sex').value = savedSex;
-
-  const savedTopics = JSON.parse(localStorage.getItem('selected_topics') || '[]');
-  document.querySelectorAll('.badge').forEach(badge => {
-    if (savedTopics.includes(badge.textContent)) {
-      badge.classList.remove('bg-secondary');
-      badge.classList.add('bg-primary');
-    }
-  });
-}
-
-// Create account handler
-document.getElementById('create-form').onsubmit = async (e) => {
+// Auth: Create Account
+forms.create.addEventListener('submit', async e => {
   e.preventDefault();
-  const form = e.target;
   const data = {
-    display_name: form['display-name'].value,
-    username: form.username.value,
-    email: form.email.value,
-    password: form.password.value,
-    age: parseInt(form.age.value),
-    sex: form.sex.value
+    displayName: document.getElementById('display-name').value,
+    username: document.getElementById('username').value,
+    email: document.getElementById('email').value,
+    password: document.getElementById('password').value,
+    age: document.getElementById('age').value,
+    sex: document.getElementById('sex').value
   };
-
-  if (data.display_name.length < 3 || data.display_name.length > 16 ||
-    data.username.length < 3 || data.username.length > 16) {
-    return alert('Display Name and Username must be 3-16 characters');
+  if (data.displayName.length < 3 || data.displayName.length > 16 || data.username.length < 3 || data.username.length > 16) {
+    alert('Display Name and Username must be 3-16 characters.');
+    return;
   }
-
-  const { data: userData, error: signUpError } = await supabase.auth.signUp({
-    email: data.email,
-    password: data.password
-  });
-
-  if (signUpError) return alert(signUpError.message);
-
-  const { error: profileError } = await supabase.from('profiles').insert({
-    id: userData.user.id,
-    display_name: data.display_name,
-    username: data.username,
-    age: data.age,
-    sex: data.sex
-  });
-
-  if (profileError) {
-    alert(`Profile creation failed: ${profileError.message}`);
-    await supabase.auth.signOut();
-  } else {
-    session = userData.session;
-    showPage('match-page');
+  try {
+    const { user, error } = await supabase.auth.signUp({ email: data.email, password: data.password });
+    if (error) throw error;
+    const { data: userData, error: insertError } = await supabase
+      .from('users')
+      .insert([{ id: user.id, ...data }]);
+    if (insertError) throw insertError;
+    currentUser = userData[0];
+    showPage('match');
+    loadTopics();
+  } catch (error) {
+    alert(error.message);
   }
-};
-
-// Login handler
-document.getElementById('login-form').onsubmit = async e => {
-  e.preventDefault();
-  const form = e.target;
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: form['login-email'].value,
-    password: form['login-password'].value
-  });
-  if (error) return alert(error.message);
-  session = data.session;
-  showPage('match-page');
-};
-
-// Initialize topics UI
-const topicsContainer = document.getElementById('topics-container');
-Object.entries(topics).forEach(([category, items]) => {
-  const categoryHeader = document.createElement('h5');
-  categoryHeader.textContent = category;
-  topicsContainer.appendChild(categoryHeader);
-  items.forEach(topic => {
-    const badge = document.createElement('span');
-    badge.className = 'badge bg-secondary m-1';
-    badge.textContent = topic;
-    badge.style.cursor = 'pointer';
-    badge.onclick = () => {
-      badge.classList.toggle('bg-secondary');
-      badge.classList.toggle('bg-primary');
-      const selectedTopics = [...document.querySelectorAll('.bg-primary')].map(b => b.textContent);
-      localStorage.setItem('selected_topics', JSON.stringify(selectedTopics));
-    };
-    topicsContainer.appendChild(badge);
-  });
 });
 
-// Match settings change handlers
-document.getElementById('desired-sex').onchange = () => {
-  localStorage.setItem('desired_sex', document.getElementById('desired-sex').value);
-};
-
-// Match button handler
-document.getElementById('match-button').onclick = async () => {
-  const desiredSex = document.getElementById('desired-sex').value;
-  const selectedTopics = [...document.querySelectorAll('.bg-primary')].map(b => b.textContent);
-  
-  // Clear any existing pool entry
-  await supabase.from('match_pool').delete().eq('user_id', session.user.id);
-  
-  // Join match pool
-  const { error: poolError } = await supabase.from('match_pool').insert({
-    user_id: session.user.id,
-    desired_sex: desiredSex,
-    topics: selectedTopics.length ? selectedTopics : null
-  });
-  
-  if (poolError) {
-    console.error('Pool join error:', poolError);
-    return alert('Failed to join match pool');
-  }
-  
-  showPage('loading-page');
-  findMatch();
-};
-
-async function findMatch() {
-  // Create unique channel for match updates
-  matchChannel = supabase.channel(`match_updates_${session.user.id}`);
-  
-  // Listen for match notifications
-  matchChannel.on('broadcast', { event: 'matched' }, (payload) => {
-    startChat(payload.channel_id, payload.other_user_id);
-  }).subscribe();
-
-  const poll = setInterval(async () => {
-    try {
-      const { data, error } = await supabase.rpc('find_match', {
-        current_user_id: session.user.id
-      });
-      
-      if (error) throw error;
-      
-      if (data && data.length > 0) {
-        clearInterval(poll);
-        const { matched_user_id, channel_id } = data[0];
-        
-        // Notify the other user
-        const notifyChannel = supabase.channel(`match_updates_${matched_user_id}`);
-        notifyChannel.subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            notifyChannel.send({
-              type: 'broadcast',
-              event: 'matched',
-              payload: { 
-                channel_id, 
-                other_user_id: session.user.id 
-              }
-            });
-          }
-        });
-        
-        startChat(channel_id, matched_user_id);
-      }
-    } catch (error) {
-      console.error('Matching error:', error);
-      clearInterval(poll);
-      showPage('match-page');
-    }
-  }, 3000);
-}
-
-async function startChat(channelId, otherUserId) {
-  // Clean up match listener
-  if (matchChannel) {
-    matchChannel.unsubscribe();
-  }
-  
-  // Get profile with proper error handling
-  let profile;
-  try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('display_name, username')
-      .eq('id', otherUserId)
-      .single();
-    
-    if (error) throw error;
-    profile = data;
-  } catch (error) {
-    console.error('Profile fetch error:', error);
-    // Get the user's actual ID as fallback
-    profile = {
-      display_name: `User ${otherUserId.slice(0, 8)}`,
-      username: `user_${otherUserId.slice(0, 8)}`
-    };
-  }
-
-  // Display profile
-  document.getElementById('matched-display-name').textContent = profile.display_name;
-  document.getElementById('matched-username').textContent = profile.username;
-
-  // Setup chat channel
-  channel = supabase.channel(channelId, {
-    config: {
-      presence: {
-        key: session.user.id
-      }
-    }
-  });
-  
-  // Message handler
-  channel.on('broadcast', { event: 'message' }, ({ payload }) => {
-    addMessage(payload.text, payload.user_id === session.user.id);
-  });
-  
-  // User left handler
-  channel.on('broadcast', { event: 'user_left' }, () => {
-    addMessage('Partner left the chat', false, true);
-    disableChat();
-  });
-  
-  // Presence tracking
-  channel.on('presence', { event: 'sync' }, () => {
-    const state = channel.presenceState();
-    const otherUserPresent = Object.keys(state).some(key => key !== session.user.id);
-    
-    if (!otherUserPresent) {
-      addMessage('Partner disconnected', false, true);
-      disableChat();
-    }
-  });
-  
-  // Track user presence
-  channel.track({ online_at: new Date().toISOString() });
-  channel.subscribe();
-
-  showPage('chat-page');
-}
-
-// Add message to chat UI
-function addMessage(text, isSelf, isSystem = false) {
-  const div = document.createElement('div');
-  div.classList.add('border-0', 'py-1');
-
-  if (isSystem) {
-    div.classList.add('d-flex', 'flex-column', 'align-items-end', 'my-2');
-    div.innerHTML = `<div class="d-inline-block bg-danger text-white rounded p-2"><div class="text-sm">${text}</div></div>`;
-  } else if (isSelf) {
-    div.classList.add('d-flex', 'flex-column', 'align-items-end', 'my-2');
-    div.innerHTML = `<div class="d-inline-block bg-primary text-white rounded p-2"><div class="text-sm">${text}</div></div>`;
-  } else {
-    div.classList.add('d-flex', 'flex-column', 'align-items-start', 'my-2');
-    div.innerHTML = `<div class="d-inline-block bg-light rounded p-2"><div class="text-sm">${text}</div></div>`;
-  }
-
-  document.getElementById('chat-messages').appendChild(div);
-}
-
-// Send message handler
-document.getElementById('send-button').onclick = () => {
-  const input = document.getElementById('message-input');
-  const message = input.value.trim();
-  
-  if (message) {
-    addMessage(message, true);
-    channel.send({
-      type: 'broadcast',
-      event: 'message',
-      payload: { text: message, user_id: session.user.id }
-    });
-    input.value = '';
-  }
-};
-
-document.getElementById('skip-button').onclick = async () => {
-  if (channel) {
-    channel.send({ type: 'broadcast', event: 'user_left' });
-    channel.unsubscribe();
-    channel = null;
-  }
-  
-  await supabase.from('matched_users')
-    .delete()
-    .or(`user1_id.eq.${session.user.id},user2_id.eq.${session.user.id}`);
-  
-  document.getElementById('chat-messages').innerHTML = '';
-  document.getElementById('match-button').click();
-};
-
-// Exit chat handler
-document.getElementById('exit-button').onclick = async () => {
-  if (channel) {
-    channel.send({ type: 'broadcast', event: 'user_left' });
-    channel.unsubscribe();
-    channel = null;
-  }
-  
-  await supabase.from('matched_users')
-    .delete()
-    .or(`user1_id.eq.${session.user.id},user2_id.eq.${session.user.id}`);
-  
-  document.getElementById('chat-messages').innerHTML = '';
-  showPage('match-page');
-};
-
-// Disable chat UI
-function disableChat() {
-  document.getElementById('message-input').disabled = true;
-  document.getElementById('send-button').disabled = true;
-}
-
-// Profile button handler
-document.getElementById('profile-button').onclick = async () => {
-  const { data, error } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-  if (error) return alert('Failed to load profile');
-  document.getElementById('profile-display-name').value = data.display_name;
-  document.getElementById('profile-username').value = data.username;
-  showPage('profile-page');
-};
-
-// Update profile handler
-document.getElementById('profile-form').onsubmit = async e => {
+// Auth: Login
+forms.login.addEventListener('submit', async e => {
   e.preventDefault();
-  const form = e.target;
-  const data = {
-    display_name: form['profile-display-name'].value,
-    username: form['profile-username'].value
-  };
-  
-  if (data.display_name.length < 3 || data.display_name.length > 16 ||
-    data.username.length < 3 || data.username.length > 16) {
-    return alert('Display Name and Username must be 3-16 characters');
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  try {
+    const { user, error } = await supabase.auth.signIn({ email, password });
+    if (error) throw error;
+    const { data, error: fetchError } = await supabase.from('users').select('*').eq('id', user.id).single();
+    if (fetchError) throw fetchError;
+    currentUser = data;
+    showPage('match');
+    loadTopics();
+  } catch (error) {
+    alert(error.message);
   }
-  
-  const { error } = await supabase.from('profiles').update(data).eq('id', session.user.id);
-  alert(error ? error.message : 'Profile updated');
-  if (!error) showPage('match-page');
-};
+});
 
-// Logout handler
-document.getElementById('logout-button').onclick = async () => {
-  // Clean up before logout
-  await supabase.from('match_pool').delete().eq('user_id', session.user.id);
-  await supabase.from('matched_users').delete().or(
-    `user1_id.eq.${session.user.id},user2_id.eq.${session.user.id}`
-  );
-  
+// Load topics
+async function loadTopics() {
+  const { data, error } = await supabase.from('topics').select('*');
+  if (error) return alert(error.message);
+  const container = document.getElementById('topics-container');
+  container.innerHTML = '';
+  data.forEach(topic => {
+    const badge = document.createElement('span');
+    badge.className = 'badge badge-secondary mr-2 mb-2';
+    badge.textContent = topic.name;
+    badge.addEventListener('click', () => badge.classList.toggle('badge-primary').classList.toggle('badge-secondary'));
+    container.appendChild(badge);
+  });
+}
+
+// Match
+buttons.match.addEventListener('click', async () => {
+  const desiredSex = document.getElementById('desired-sex').value;
+  const selectedTopics = Array.from(document.querySelectorAll('.badge-primary')).map(b => b.textContent);
+  const { data: topicsData, error: topicsError } = await supabase.from('topics').select('id').in('name', selectedTopics);
+  if (topicsError) return alert(topicsError.message);
+  const topicIds = topicsData.map(t => t.id);
+  buttons.match.disabled = true;
+  buttons.match.textContent = 'Matching...';
+  const { data, error } = await supabase.rpc('match_users', {
+    p_user_id: currentUser.id,
+    p_desired_sex: desiredSex,
+    p_topics: topicIds
+  });
+  buttons.match.disabled = false;
+  buttons.match.textContent = 'Match';
+  if (error) return alert(error.message);
+  if (!data) return alert('No match found.');
+  matchedUser = data;
+  showChatPage();
+});
+
+// Chat page
+async function showChatPage() {
+  showPage('chat');
+  const { data, error } = await supabase.from('users').select('display_name, username, sex, age').eq('id', matchedUser).single();
+  if (error) return alert(error.message);
+  document.getElementById('matched-user-display-name').textContent = data.display_name;
+  document.getElementById('matched-user-username').textContent = data.username;
+  document.getElementById('matched-user-sex').textContent = data.sex;
+  document.getElementById('matched-user-age').textContent = data.age;
+  if (subscription) supabase.removeSubscription(subscription);
+  subscription = supabase
+    .from(`messages:sender_id=eq.${currentUser.id}&receiver_id=eq.${matchedUser}|sender_id=eq.${matchedUser}&receiver_id=eq.${currentUser.id}`)
+    .on('INSERT', payload => {
+      const msg = payload.new;
+      const div = document.createElement('div');
+      div.textContent = msg.content;
+      div.className = msg.sender_id === currentUser.id ? 'text-right text-primary' : 'text-left text-muted';
+      if (msg.content.startsWith('[System]')) div.className = 'text-center text-danger';
+      document.getElementById('messages-area').appendChild(div);
+    })
+    .subscribe();
+}
+
+// Send message
+buttons.send.addEventListener('click', async () => {
+  const input = document.getElementById('message-input');
+  const content = input.value.trim();
+  if (!content) return;
+  const { error } = await supabase.from('messages').insert({ sender_id: currentUser.id, receiver_id: matchedUser, content });
+  if (error) alert(error.message);
+  else input.value = '';
+});
+
+// Skip
+buttons.skip.addEventListener('click', async () => {
+  await supabase.from('messages').insert({
+    sender_id: currentUser.id,
+    receiver_id: matchedUser,
+    content: `[System] ${currentUser.username} left the chat.`
+  });
+  document.getElementById('message-input').disabled = true;
+  buttons.send.disabled = true;
+  buttons.skip.disabled = true;
+  buttons.exit.disabled = true;
+  buttons.match.click();
+});
+
+// Exit
+buttons.exit.addEventListener('click', () => {
+  showPage('match');
+  matchedUser = null;
+  if (subscription) supabase.removeSubscription(subscription);
+});
+
+// Profile page
+profileLink.addEventListener('click', e => {
+  e.preventDefault();
+  showPage('profile');
+  document.getElementById('profile-display-name').value = currentUser.display_name;
+  document.getElementById('profile-username').value = currentUser.username;
+});
+
+// Save profile
+forms.profile.addEventListener('submit', async e => {
+  e.preventDefault();
+  const displayName = document.getElementById('profile-display-name').value;
+  const username = document.getElementById('profile-username').value;
+  if (displayName.length < 3 || displayName.length > 16 || username.length < 3 || username.length > 16) {
+    alert('Display Name and Username must be 3-16 characters.');
+    return;
+  }
+  const { data, error } = await supabase.from('users').select('id').eq('username', username).neq('id', currentUser.id);
+  if (error) return alert(error.message);
+  if (data.length > 0) return alert('Username is taken.');
+  const { error: updateError } = await supabase.from('users').update({ display_name: displayName, username }).eq('id', currentUser.id);
+  if (updateError) return alert(updateError.message);
+  currentUser.display_name = displayName;
+  currentUser.username = username;
+  alert('Profile updated.');
+});
+
+// Logout
+buttons.logout.addEventListener('click', async () => {
   await supabase.auth.signOut();
-  session = null;
-  showPage('auth-page');
-};
-
-// Initialize app
-init();
+  currentUser = null;
+  showPage('auth');
+});

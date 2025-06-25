@@ -2,181 +2,118 @@
 <html lang="en">
 
 <head>
-    <!-- Meta -->
     <meta charset="UTF-8">
-    <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <meta content="Yaklo" property="og:title">
-    <meta content="The next big site like Omegle" property="og:description">
-    <meta content="https://itsmike613.github.io/Quokka/" property="og:url">
-    <meta content="https://github.com/itsmike613/Quokka/blob/main/Source/Images/logo.png?raw=true" property="og:image">
-    <meta content="#FDB813" data-react-helmet="true" name="theme-color">
-
-    <!-- Tab -->
-    <link rel="icon" type="image/x-icon" href="Source/Images/logo.png">
-    <title>Quokka</title>
-
-    <!-- Styles -->
-    <link rel="stylesheet" href="https://unpkg.com/@webpixels/css/dist/index.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css" />
-    <link rel="stylesheet" href="Source/Styles/index.css">
-
-    <!-- Scripts -->
-    <script src="https://unpkg.com/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QUOKKA Chat</title>
+    <link href="https://cdn.jsdelivr.net/npm/webpixels-css@1.1.0/dist/index.css" rel="stylesheet">
+    <link href="/Source/Styles/index.css" rel="stylesheet">
 </head>
 
 <body>
     <!-- Auth Page -->
-    <div id="auth-page" class="page">
-        <div class="d-flex align-items-center justify-content-center bg-light min-vh-100 w-100">
-            <div class="w-100 p-7" style="max-width: 400px;">
-                <form id="create-form" class="d-block">
-                    <h3 class="mb-2">Create Account</h3>
-                    <label class="form-label">Display Name</label>
-                    <input type="text" class="form-control form-control-sm mb-2" minlength="3" maxlength="16"
-                        id="display-name" required>
-                    <label class="form-label">Username</label>
-                    <input type="text" class="form-control form-control-sm mb-2" minlength="3" maxlength="16"
-                        id="username" required>
-                    <label class="form-label">Email</label>
-                    <input type="email" class="form-control form-control-sm mb-2" id="email" required>
-                    <label class="form-label">Password</label>
-                    <input type="password" class="form-control form-control-sm mb-2" id="password" required>
-                    <label class="form-label">Age</label>
-                    <input type="number" class="form-control form-control-sm mb-2" id="age" min="13" required>
-                    <label class="form-label">Sex</label>
-                    <select class="form-select form-select-sm mb-2" id="sex" required>
-                        <option value="" disabled selected>Select Sex</option>
+    <div id="auth-page" class="container">
+        <h1 class="mb-4">Welcome to QUOKKA Chat</h1>
+        <div id="create-account-form" class="card p-4 mb-4">
+            <h2 class="mb-3">Create Account</h2>
+            <form>
+                <div class="form-group mb-3">
+                    <label for="display-name">Display Name (3-16 chars)</label>
+                    <input type="text" id="display-name" class="form-control" required>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="username">Username (3-16 chars, unique)</label>
+                    <input type="text" id="username" class="form-control" required>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" class="form-control" required>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" class="form-control" required>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="age">Age</label>
+                    <input type="number" id="age" class="form-control" required>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="sex">Sex</label>
+                    <select id="sex" class="form-control" required>
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
                     </select>
-                    <button type="submit" class="btn btn-sm btn-dark w-100 mb-2">Create Account</button>
-                    <p class="text-center">Already have an account? <span class="text-cyan-700 fw-bold cursor-pointer"
-                            onclick="toggleAuth()">Login</span></p>
-                </form>
-                <form id="login-form" class="d-none">
-                    <h3 class="mb-2">Login</h3>
-                    <label class="form-label">Email</label>
-                    <input type="email" class="form-control form-control-sm mb-2" id="login-email" required>
-                    <label class="form-label">Password</label>
-                    <input type="password" class="form-control form-control-sm mb-2" id="login-password" required>
-                    <button type="submit" class="btn btn-sm btn-dark w-100 mb-2">Login</button>
-                    <p class="text-center">Don’t have an account? <span class="text-cyan-700 fw-bold cursor-pointer"
-                            onclick="toggleAuth()">Create Account</span></p>
-                </form>
-            </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Create Account</button>
+            </form>
+        </div>
+        <div id="login-form" class="card p-4">
+            <h2 class="mb-3">Login</h2>
+            <form>
+                <div class="form-group mb-3">
+                    <label for="login-email">Email</label>
+                    <input type="email" id="login-email" class="form-control" required>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" class="form-control" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Login</button>
+            </form>
         </div>
     </div>
 
     <!-- Match Page -->
-    <div id="match-page" class="page" style="display: none;">
-        <div class="d-flex align-items-center justify-content-center bg-light min-vh-100 w-100">
-            <div class="w-100 p-7" style="max-width: 400px;">
-                <h3 class="mb-2">Match Filters</h3>
-                <label class="form-label">What sex would you like to be matched with?</label>
-                <select class="form-select form-select-sm mb-3" id="desired-sex" required>
-                    <option value="" disabled selected>Select Sex</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Either">Either</option>
-                </select>
-                <div id="topics-container" class="mb-2"></div>
-                <button class="btn btn-sm btn-dark" id="match-button">Match</button>
-                <button class="btn btn-sm btn-secondary mw-2" id="profile-button">Profile</button>
-            </div>
+    <div id="match-page" class="container" style="display: none;">
+        <h1 class="mb-4">Find a Match</h1>
+        <div class="form-group mb-3">
+            <label for="desired-sex">What sex would you like to match with?</label>
+            <select id="desired-sex" class="form-control">
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Either">Either</option>
+            </select>
         </div>
-    </div>
-
-    <!-- Loading Page -->
-    <div id="loading-page" class="page" style="display: none;">
-        <div class="container mt-5 text-center">
-            <h2>Finding a match...</h2>
-            <div class="spinner-border" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
+        <div class="form-group mb-3">
+            <label>Topics</label>
+            <div id="topics-container"></div>
         </div>
+        <button id="match-button" class="btn btn-primary">Match</button>
+        <a href="#" id="profile-link" class="ml-3">Profile</a>
     </div>
 
     <!-- Chat Page -->
-    <div id="chat-page" class="page" style="display: none;">
-        <div class="d-flex align-items-center justify-content-center bg-light min-vh-100 w-100">
-            <div class="w-100 p-7" style="max-width: 400px;">
-                <div class="card mb-4">
-                    <div class="card-body py-0">
-                        <div class="list-group list-group-flush">
-                            <div class="list-group-item d-flex align-items-center">
-                                <div class="me-4">
-                                    <div class="avatar rounded"><img src="Source/Images/logo.png" alt="..."></div>
-                                </div>
-                                <div class="flex-fill">
-                                    <span class="d-block h6 fw-semibold mb-2" id="matched-display-name">Display
-                                        Name</span>
-                                    <h6 class="font-semibold text-xs text-muted text-opacity-70 d-flex gap-3">
-                                        <span class="d-flex align-items-center gap-1"><i class="ph ph-user"></i><span
-                                                id="matched-username">Username</span></span>
-                                        <span class="d-flex align-items-center gap-1"><i
-                                                class="ph ph-person-arms-spread"></i><span
-                                                id="matched-sex"></span></span>
-                                        <span class="d-flex align-items-center gap-1"><i class="ph ph-cake"></i><span
-                                                id="matched-age"></span></span>
-                                    </h6>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="card mb-4">
-                    <div class="card-body py-0">
-                        <div class="overflow-y-auto my-4" style="height: 20rem;">
-                            <div id="chat-messages">
-                                <!-- Messages will be dynamically inserted here -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="textarea-autosize p-6">
-                        <textarea id="message-input" class="form-control border-0 shadow-none p-0" rows="1"
-                            placeholder="Type your message..."></textarea>
-                    </div>
-                    <div class="d-flex align-items-center px-6 py-3 border-top">
-                        <div class="flex-fill d-flex align-items-center">
-                            <h6 class="fw-bolder text-cyan-700">QUOKKA</h6>
-                        </div>
-                        <div class="text-end">
-                            <div class="hstack gap-5 align-items-center">
-                                <a href="#" class="text-lg text-danger text-muted-hover" id="exit-button"><i
-                                        class="ph ph-sign-out"></i></a>
-                                <a href="#" class="text-lg text-warning text-muted-hover" id="skip-button"><i
-                                        class="ph ph-skip-forward"></i></a>
-                                <a href="#" class="text-lg text-success text-muted-hover" id="send-button"><i
-                                        class="ph ph-paper-plane-right"></i></a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <div id="chat-page" class="container" style="display: none;">
+        <h1 class="mb-4">Chat with <span id="matched-user-display-name"></span> (<span
+                id="matched-user-username"></span>, <span id="matched-user-sex"></span>, <span
+                id="matched-user-age"></span>)</h1>
+        <div id="messages-area" class="card p-3 mb-3" style="min-height: 200px;"></div>
+        <div class="form-group mb-3 d-flex">
+            <input type="text" id="message-input" class="form-control mr-2" placeholder="Type your message...">
+            <button id="send-button" class="btn btn-primary">Send</button>
         </div>
+        <button id="skip-button" class="btn btn-secondary mr-2">Skip</button>
+        <button id="exit-button" class="btn btn-danger">Exit</button>
     </div>
 
     <!-- Profile Page -->
-    <div id="profile-page" class="page" style="display: none;">
-        <div class="d-flex align-items-center justify-content-center bg-light min-vh-100 w-100">
-            <div class="w-100 p-7" style="max-width: 400px;">
-                <form id="profile-form">
-                    <h3 class="mb-2">Profile Settings</h3>
-                    <label class="form-label">Display Name</label>
-                    <input type="text" class="form-control form-control-sm mb-2" id="profile-display-name">
-                    <label class="form-label">Username</label>
-                    <input type="text" class="form-control form-control-sm mb-2" id="profile-username">
-                    <button type="submit" class="btn btn-sm btn-dark mb-2">Save</button>
-                </form>
-                <button class="btn btn-sm btn-danger" id="logout-button">Logout</button>
+    <div id="profile-page" class="container" style="display: none;">
+        <h1 class="mb-4">Profile</h1>
+        <form class="card p-4 mb-4">
+            <div class="form-group mb-3">
+                <label for="profile-display-name">Display Name</label>
+                <input type="text" id="profile-display-name" class="form-control">
             </div>
-        </div>
+            <div class="form-group mb-3">
+                <label for="profile-username">Username</label>
+                <input type="text" id="profile-username" class="form-control">
+            </div>
+            <button type="submit" class="btn btn-primary">Save</button>
+        </form>
+        <button id="logout-button" class="btn btn-danger">Logout</button>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="Source/Scripts/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.0.0/dist/umd/supabase.min.js"></script>
+    <script src="/Source/Scripts/index.js"></script>
 </body>
 
 </html>
