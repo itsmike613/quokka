@@ -2,118 +2,170 @@
 <html lang="en">
 
 <head>
+    <!-- Meta -->
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QUOKKA Chat</title>
-    <link href="https://cdn.jsdelivr.net/npm/webpixels-css@1.1.0/dist/index.css" rel="stylesheet">
-    <link href="/Source/Styles/index.css" rel="stylesheet">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta content="Yaklo" property="og:title">
+    <meta content="The next big site like Omegle" property="og:description">
+    <meta content="https://itsmike613.github.io/Quokka/" property="og:url">
+    <meta content="https://github.com/itsmike613/Quokka/blob/main/Source/Images/logo.png?raw=true" property="og:image">
+    <meta content="#FDB813" data-react-helmet="true" name="theme-color">
+
+    <!-- Tab -->
+    <link rel="icon" type="image/x-icon" href="Source/Images/logo.png">
+    <title>Quokka</title>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="https://unpkg.com/@webpixels/css/dist/index.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css" />
+    <link rel="stylesheet" href="Source/Styles/index.css">
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 
 <body>
     <!-- Auth Page -->
-    <div id="auth-page" class="container">
-        <h1 class="mb-4">Welcome to QUOKKA Chat</h1>
-        <div id="create-account-form" class="card p-4 mb-4">
-            <h2 class="mb-3">Create Account</h2>
-            <form>
-                <div class="form-group mb-3">
-                    <label for="display-name">Display Name (3-16 chars)</label>
-                    <input type="text" id="display-name" class="form-control" required>
-                </div>
-                <div class="form-group mb-3">
-                    <label for="username">Username (3-16 chars, unique)</label>
-                    <input type="text" id="username" class="form-control" required>
-                </div>
-                <div class="form-group mb-3">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" class="form-control" required>
-                </div>
-                <div class="form-group mb-3">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" class="form-control" required>
-                </div>
-                <div class="form-group mb-3">
-                    <label for="age">Age</label>
-                    <input type="number" id="age" class="form-control" required>
-                </div>
-                <div class="form-group mb-3">
-                    <label for="sex">Sex</label>
-                    <select id="sex" class="form-control" required>
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                    </select>
-                </div>
-                <button type="submit" class="btn btn-primary">Create Account</button>
-            </form>
-        </div>
-        <div id="login-form" class="card p-4">
-            <h2 class="mb-3">Login</h2>
-            <form>
-                <div class="form-group mb-3">
-                    <label for="login-email">Email</label>
-                    <input type="email" id="login-email" class="form-control" required>
-                </div>
-                <div class="form-group mb-3">
-                    <label for="login-password">Password</label>
-                    <input type="password" id="login-password" class="form-control" required>
-                </div>
-                <button type="submit" class="btn btn-primary">Login</button>
-            </form>
+    <div id="auth-page" class="page">
+        <div class="d-flex align-items-center justify-content-center min-vh-100 bg-light">
+            <div class="w-100 p-4" style="max-width: 400px;">
+                <form id="create-form" class="mb-3">
+                    <h3>Create Account</h3>
+                    <div class="mb-2">
+                        <label class="form-label">Display Name</label>
+                        <input type="text" class="form-control" id="display-name" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Age</label>
+                        <input type="number" class="form-control" id="age" min="13" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Sex</label>
+                        <select class="form-select" id="sex" required>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-dark w-100">Create Account</button>
+                    <p class="text-center mt-2">
+                        Have an account? <a href="#" onclick="toggleAuth()">Login</a>
+                    </p>
+                </form>
+                <form id="login-form" class="d-none">
+                    <h3>Login</h3>
+                    <div class="mb-2">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="login-email" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-control" id="login-password" required>
+                    </div>
+                    <button type="submit" class="btn btn-dark w-100">Login</button>
+                    <p class="text-center mt-2">
+                        No account? <a href="#" onclick="toggleAuth()">Create Account</a>
+                    </p>
+                </form>
+            </div>
         </div>
     </div>
 
     <!-- Match Page -->
-    <div id="match-page" class="container" style="display: none;">
-        <h1 class="mb-4">Find a Match</h1>
-        <div class="form-group mb-3">
-            <label for="desired-sex">What sex would you like to match with?</label>
-            <select id="desired-sex" class="form-control">
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Either">Either</option>
-            </select>
+    <div id="match-page" class="page" style="display: none;">
+        <div class="d-flex align-items-center justify-content-center min-vh-100 bg-light">
+            <div class="w-100 p-4" style="max-width: 400px;">
+                <h3>Find a Match</h3>
+                <div class="mb-3">
+                    <label class="form-label">Desired Sex</label>
+                    <select class="form-select" id="desired-sex">
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Either">Either</option>
+                    </select>
+                </div>
+                <div id="topics-container" class="mb-3"></div>
+                <button class="btn btn-dark" id="match-button">Match</button>
+                <button class="btn btn-secondary ms-2" id="profile-button">Profile</button>
+            </div>
         </div>
-        <div class="form-group mb-3">
-            <label>Topics</label>
-            <div id="topics-container"></div>
+    </div>
+
+    <!-- Loading Page -->
+    <div id="loading-page" class="page" style="display: none;">
+        <div class="text-center mt-5">
+            <h2>Finding a match...</h2>
+            <div class="spinner-border"></div>
         </div>
-        <button id="match-button" class="btn btn-primary">Match</button>
-        <a href="#" id="profile-link" class="ml-3">Profile</a>
     </div>
 
     <!-- Chat Page -->
-    <div id="chat-page" class="container" style="display: none;">
-        <h1 class="mb-4">Chat with <span id="matched-user-display-name"></span> (<span
-                id="matched-user-username"></span>, <span id="matched-user-sex"></span>, <span
-                id="matched-user-age"></span>)</h1>
-        <div id="messages-area" class="card p-3 mb-3" style="min-height: 200px;"></div>
-        <div class="form-group mb-3 d-flex">
-            <input type="text" id="message-input" class="form-control mr-2" placeholder="Type your message...">
-            <button id="send-button" class="btn btn-primary">Send</button>
+    <div id="chat-page" class="page" style="display: none;">
+        <div class="d-flex align-items-center justify-content-center min-vh-100 bg-light">
+            <div class="w-100 p-4" style="max-width: 400px;">
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 id="matched-display-name"></h5>
+                        <p class="text-muted">
+                            <span id="matched-username"></span> |
+                            <span id="matched-sex"></span> |
+                            <span id="matched-age"></span>
+                        </p>
+                    </div>
+                </div>
+                <div class="card mb-3">
+                    <div class="card-body" style="height: 300px; overflow-y: auto;">
+                        <div id="chat-messages"></div>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <textarea class="form-control" id="message-input" placeholder="Type a message..."
+                        rows="1"></textarea>
+                    <button class="btn btn-success" id="send-button">Send</button>
+                </div>
+                <div class="mt-2 text-end">
+                    <button class="btn btn-warning me-2" id="skip-button">Skip</button>
+                    <button class="btn btn-danger" id="exit-button">Exit</button>
+                </div>
+            </div>
         </div>
-        <button id="skip-button" class="btn btn-secondary mr-2">Skip</button>
-        <button id="exit-button" class="btn btn-danger">Exit</button>
     </div>
 
     <!-- Profile Page -->
-    <div id="profile-page" class="container" style="display: none;">
-        <h1 class="mb-4">Profile</h1>
-        <form class="card p-4 mb-4">
-            <div class="form-group mb-3">
-                <label for="profile-display-name">Display Name</label>
-                <input type="text" id="profile-display-name" class="form-control">
+    <div id="profile-page" class="page" style="display: none;">
+        <div class="d-flex align-items-center justify-content-center min-vh-100 bg-light">
+            <div class="w-100 p-4" style="max-width: 400px;">
+                <form id="profile-form">
+                    <h3>Profile</h3>
+                    <div class="mb-2">
+                        <label class="form-label">Display Name</label>
+                        <input type="text" class="form-control" id="profile-display-name">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-control" id="profile-username">
+                    </div>
+                    <button type="submit" class="btn btn-dark">Save</button>
+                </form>
+                <button class="btn btn-danger mt-2" id="logout-button">Logout</button>
             </div>
-            <div class="form-group mb-3">
-                <label for="profile-username">Username</label>
-                <input type="text" id="profile-username" class="form-control">
-            </div>
-            <button type="submit" class="btn btn-primary">Save</button>
-        </form>
-        <button id="logout-button" class="btn btn-danger">Logout</button>
+        </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.0.0/dist/umd/supabase.min.js"></script>
-    <script src="/Source/Scripts/index.js"></script>
+    <!-- Body Scripts -->
+    <script src="Source/Scripts/index.js"></script>
 </body>
 
 </html>
