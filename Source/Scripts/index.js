@@ -1,6 +1,6 @@
 const supabase = window.supabase.createClient(
-	'https://kotcxrjnvutpllojtkoo.supabase.co',
-	'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtvdGN4cmpudnV0cGxsb2p0a29vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA1NTE0MTMsImV4cCI6MjA2NjEyNzQxM30.NcMrLfW6res9fUD-LlL2R1ohSf7lAsQy1h-eSOWcr6k'
+	'https://tduhwkxbmbjqfbxrrrrq.supabase.co',
+	'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkdWh3a3hibWJqcWZieHJycnJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4MTMwMTksImV4cCI6MjA2NjM4OTAxOX0.Obvm-lGSwbBZC03vMxXR1jfu4UyqHk3dMFNo7y1lt4w'
 );
 
 let session, channel;
