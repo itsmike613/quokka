@@ -156,7 +156,10 @@ async function startChat(matchId) {
     showPage('auth-page');
     return;
   }
+
   console.log('Starting chat with match ID:', matchId);
+
+  // Fetch matched request
   const { data: matchedMr, error: mrError } = await supabase
     .from('match_requests')
     .select('user_id')
@@ -170,6 +173,8 @@ async function startChat(matchId) {
     return;
   }
   console.log('Matched request:', matchedMr);
+
+  // Fetch matched profile
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('*')
@@ -183,23 +188,62 @@ async function startChat(matchId) {
     return;
   }
   console.log('Matched profile:', profile);
+
+  // Update UI with profile details
   document.getElementById('matched-display-name').textContent = profile.display_name;
   document.getElementById('matched-username').textContent = profile.username;
   document.getElementById('matched-sex').textContent = profile.sex;
   document.getElementById('matched-age').textContent = profile.age;
 
+  // Set up the Realtime channel
   const channelName = `chat:${Math.min(currentMatchRequest.id, matchId)}:${Math.max(currentMatchRequest.id, matchId)}`;
   channel = supabase.channel(channelName);
+
+  // Handle incoming messages
   channel.on('broadcast', { event: 'message' }, ({ payload }) =>
     addMessage(payload.text, payload.user_id === session.user.id)
   );
+
+  // Handle user leaving the chat
   channel.on('broadcast', { event: 'user_left' }, () => {
     addMessage(`${profile.username} left the chat.`, false, true);
     document.getElementById('message-input').disabled = true;
     document.getElementById('send-button').disabled = true;
   });
-  channel.subscribe();
-  showPage('chat-page');
+
+  // Handle WebSocket errors
+  channel.on('error', (error) => {
+    console.error('WebSocket channel error:', error);
+    // Notify user if needed, e.g., alert('Connection issue detected. Attempting to reconnect...');
+  });
+
+  // Handle connection closure with reconnection
+  channel.on('close', () => {
+    console.log('WebSocket channel closed. Attempting to reconnect...');
+    setTimeout(() => {
+      if (channel.state !== 'joined') { // Check if not already reconnected
+        channel.subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('Successfully reconnected to channel:', channelName);
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('Reconnection failed. Retrying in 5 seconds...');
+          }
+        });
+      }
+    }, 5000); // Wait 5 seconds before retrying
+  });
+
+  // Subscribe to the channel
+  channel.subscribe((status) => {
+    if (status === 'SUBSCRIBED') {
+      console.log('Successfully subscribed to channel:', channelName);
+      showPage('chat-page');
+    } else if (status === 'CHANNEL_ERROR') {
+      console.error('Failed to subscribe to channel:', channelName);
+      alert('Unable to connect to chat. Please try again later.');
+      showPage('match-page');
+    }
+  });
 }
 
 function addMessage(text, isSelf, isSystem = false) {
