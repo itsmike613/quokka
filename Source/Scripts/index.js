@@ -19,6 +19,11 @@ async function init() {
 }
 init();
 
+function toggleAuth() {
+  document.getElementById('create-form').classList.toggle('d-none');
+  document.getElementById('login-form').classList.toggle('d-none');
+}
+
 function showPage(pageId) {
 	document.querySelectorAll('.page').forEach(page => page.style.display = 'none');
 	document.getElementById(pageId).style.display = 'block';
