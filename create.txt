@@ -25,7 +25,7 @@ USING (auth.uid() = id);
 CREATE POLICY "Allow select for matching" ON profiles
 FOR SELECT
 TO authenticated
-USING (true);
+USING (true); -- Allows find_match to access all profiles
 
 CREATE POLICY "Allow update own profile" ON profiles
 FOR UPDATE
@@ -37,6 +37,7 @@ CREATE TABLE match_requests (
   id SERIAL PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES auth.users(id),
   desired_sex TEXT NOT NULL CHECK (desired_sex IN ('Male', 'Female', 'Either')),
+  topics TEXT[] DEFAULT NULL,
   created_at TIMESTAMP DEFAULT NOW(),
   matched_with INTEGER DEFAULT NULL REFERENCES match_requests(id),
   participants UUID[] DEFAULT NULL
@@ -93,6 +94,11 @@ BEGIN
     AND mr1.matched_with IS NULL
     AND (mr1.desired_sex = p2.sex OR mr1.desired_sex = 'Either')
     AND (mr2.desired_sex = p1.sex OR mr2.desired_sex = 'Either')
+    AND (
+      (mr1.topics IS NULL OR array_length(mr1.topics, 1) = 0) 
+      AND (mr2.topics IS NULL OR array_length(mr2.topics, 1) = 0)
+      OR (mr1.topics && mr2.topics)
+    )
   LIMIT 1
   FOR UPDATE SKIP LOCKED;
 

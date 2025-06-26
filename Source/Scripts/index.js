@@ -1,5 +1,10 @@
-const supabase = window.supabase.createClient('https://foleiwieznjphcrntbai.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZvbGVpd2llem5qcGhjcm50YmFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4MTcyMjUsImV4cCI6MjA2NjM5MzIyNX0.sRudJuc3BbXNZEqoVBB8lGwPy5cYMtCljrFV56yDv_8');
+const supabase = window.supabase.createClient('https://wshvyvwfgpkprvktvqft.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzaHZ5dndmZ3BrcHJ2a3R2cWZ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA5NzEwNTgsImV4cCI6MjA2NjU0NzA1OH0.lt5V3VzNHxUPskSiIdA9EWAbBhQ5PzWp5PZ5q-ux_XQ');
 let session, channel, currentMatchRequest;
+
+const topics = {
+  'Sports': ['Basketball', 'Hockey', 'Soccer', 'Swimming'],
+  'Games': ['Call of Duty', 'Valorant', 'Minecraft', 'Roblox']
+};
 
 function toggleAuth() {
   document.getElementById('create-form').classList.toggle('d-none');
@@ -14,6 +19,14 @@ function showPage(pageId) {
 function loadMatchFormSettings() {
   const savedSex = localStorage.getItem('desired_sex') || 'Either';
   document.getElementById('desired-sex').value = savedSex;
+
+  const savedTopics = JSON.parse(localStorage.getItem('selected_topics') || '[]');
+  document.querySelectorAll('.badge').forEach(badge => {
+    if (savedTopics.includes(badge.textContent)) {
+      badge.classList.remove('bg-secondary');
+      badge.classList.add('bg-primary');
+    }
+  });
 }
 
 async function init() {
@@ -85,12 +98,33 @@ document.getElementById('login-form').onsubmit = async e => {
   showPage('match-page');
 };
 
+const topicsContainer = document.getElementById('topics-container');
+Object.entries(topics).forEach(([category, items]) => {
+  const categoryHeader = document.createElement('h5');
+  categoryHeader.textContent = category;
+  topicsContainer.appendChild(categoryHeader);
+  items.forEach(topic => {
+    const badge = document.createElement('span');
+    badge.className = 'badge bg-secondary m-1';
+    badge.textContent = topic;
+    badge.style.cursor = 'pointer';
+    badge.onclick = () => {
+      badge.classList.toggle('bg-secondary');
+      badge.classList.toggle('bg-primary');
+      const selectedTopics = [...document.querySelectorAll('.bg-primary')].map(b => b.textContent);
+      localStorage.setItem('selected_topics', JSON.stringify(selectedTopics));
+    };
+    topicsContainer.appendChild(badge);
+  });
+});
+
 document.getElementById('desired-sex').onchange = () => {
   localStorage.setItem('desired_sex', document.getElementById('desired-sex').value);
 };
 
 document.getElementById('match-button').onclick = async () => {
   const desiredSex = document.getElementById('desired-sex').value;
+  const selectedTopics = [...document.querySelectorAll('.bg-primary')].map(b => b.textContent);
 
   try {
     await supabase.from('match_requests')
@@ -105,6 +139,7 @@ document.getElementById('match-button').onclick = async () => {
     .insert({
       user_id: session.user.id,
       desired_sex: desiredSex,
+      topics: selectedTopics.length ? selectedTopics : null,
       participants: [session.user.id]
     })
     .select();
@@ -156,10 +191,7 @@ async function startChat(matchId) {
     showPage('auth-page');
     return;
   }
-
   console.log('Starting chat with match ID:', matchId);
-
-  // Fetch matched request
   const { data: matchedMr, error: mrError } = await supabase
     .from('match_requests')
     .select('user_id')
@@ -173,8 +205,6 @@ async function startChat(matchId) {
     return;
   }
   console.log('Matched request:', matchedMr);
-
-  // Fetch matched profile
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('*')
@@ -188,62 +218,23 @@ async function startChat(matchId) {
     return;
   }
   console.log('Matched profile:', profile);
-
-  // Update UI with profile details
   document.getElementById('matched-display-name').textContent = profile.display_name;
   document.getElementById('matched-username').textContent = profile.username;
   document.getElementById('matched-sex').textContent = profile.sex;
   document.getElementById('matched-age').textContent = profile.age;
 
-  // Set up the Realtime channel
   const channelName = `chat:${Math.min(currentMatchRequest.id, matchId)}:${Math.max(currentMatchRequest.id, matchId)}`;
   channel = supabase.channel(channelName);
-
-  // Handle incoming messages
   channel.on('broadcast', { event: 'message' }, ({ payload }) =>
     addMessage(payload.text, payload.user_id === session.user.id)
   );
-
-  // Handle user leaving the chat
   channel.on('broadcast', { event: 'user_left' }, () => {
     addMessage(`${profile.username} left the chat.`, false, true);
     document.getElementById('message-input').disabled = true;
     document.getElementById('send-button').disabled = true;
   });
-
-  // Handle WebSocket errors
-  channel.on('error', (error) => {
-    console.error('WebSocket channel error:', error);
-    // Notify user if needed, e.g., alert('Connection issue detected. Attempting to reconnect...');
-  });
-
-  // Handle connection closure with reconnection
-  channel.on('close', () => {
-    console.log('WebSocket channel closed. Attempting to reconnect...');
-    setTimeout(() => {
-      if (channel.state !== 'joined') { // Check if not already reconnected
-        channel.subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            console.log('Successfully reconnected to channel:', channelName);
-          } else if (status === 'CHANNEL_ERROR') {
-            console.error('Reconnection failed. Retrying in 5 seconds...');
-          }
-        });
-      }
-    }, 5000); // Wait 5 seconds before retrying
-  });
-
-  // Subscribe to the channel
-  channel.subscribe((status) => {
-    if (status === 'SUBSCRIBED') {
-      console.log('Successfully subscribed to channel:', channelName);
-      showPage('chat-page');
-    } else if (status === 'CHANNEL_ERROR') {
-      console.error('Failed to subscribe to channel:', channelName);
-      alert('Unable to connect to chat. Please try again later.');
-      showPage('match-page');
-    }
-  });
+  channel.subscribe();
+  showPage('chat-page');
 }
 
 function addMessage(text, isSelf, isSystem = false) {
