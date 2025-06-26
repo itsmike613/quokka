@@ -1,4 +1,3 @@
--- Create profiles table
 CREATE TABLE profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   display_name TEXT NOT NULL CHECK (length(display_name) BETWEEN 3 AND 16),
@@ -8,10 +7,8 @@ CREATE TABLE profiles (
   CONSTRAINT unique_username UNIQUE (username)
 );
 
--- Enable RLS on profiles
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
--- RLS policies for profiles
 CREATE POLICY "Allow insert own profile" ON profiles
 FOR INSERT
 TO authenticated
@@ -25,28 +22,24 @@ USING (auth.uid() = id);
 CREATE POLICY "Allow select for matching" ON profiles
 FOR SELECT
 TO authenticated
-USING (true); -- Allows find_match to access all profiles
+USING (true);
 
 CREATE POLICY "Allow update own profile" ON profiles
 FOR UPDATE
 TO authenticated
 USING (auth.uid() = id);
 
--- Create match_requests table
 CREATE TABLE match_requests (
   id SERIAL PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES auth.users(id),
   desired_sex TEXT NOT NULL CHECK (desired_sex IN ('Male', 'Female', 'Either')),
-  topics TEXT[] DEFAULT NULL,
   created_at TIMESTAMP DEFAULT NOW(),
   matched_with INTEGER DEFAULT NULL REFERENCES match_requests(id),
   participants UUID[] DEFAULT NULL
 );
 
--- Enable RLS on match_requests
 ALTER TABLE match_requests ENABLE ROW LEVEL SECURITY;
 
--- RLS policies for match_requests
 CREATE POLICY "Allow insert own match_request" ON match_requests
 FOR INSERT
 TO authenticated
@@ -62,7 +55,6 @@ FOR DELETE
 TO authenticated
 USING (auth.uid() = user_id);
 
--- Create find_match function
 CREATE OR REPLACE FUNCTION find_match(current_mr_id INTEGER)
 RETURNS INTEGER AS $$
 DECLARE
@@ -71,20 +63,16 @@ DECLARE
   current_user_id UUID;
   matched_user_id UUID;
 BEGIN
-  -- Get the current request's matched_with and user_id
   SELECT matched_with, user_id INTO current_matched_with, current_user_id
   FROM match_requests
   WHERE id = current_mr_id;
 
-  -- If already matched, return the existing match
   IF current_matched_with IS NOT NULL THEN
     RETURN current_matched_with;
   END IF;
 
-  -- Lock the current request to prevent concurrent updates
   PERFORM * FROM match_requests WHERE id = current_mr_id FOR UPDATE;
 
-  -- Find a compatible unmatched match request
   SELECT mr2.id, mr2.user_id INTO match_id, matched_user_id
   FROM match_requests mr1
   JOIN profiles p1 ON mr1.user_id = p1.id
@@ -94,15 +82,9 @@ BEGIN
     AND mr1.matched_with IS NULL
     AND (mr1.desired_sex = p2.sex OR mr1.desired_sex = 'Either')
     AND (mr2.desired_sex = p1.sex OR mr2.desired_sex = 'Either')
-    AND (
-      (mr1.topics IS NULL OR array_length(mr1.topics, 1) = 0) 
-      AND (mr2.topics IS NULL OR array_length(mr2.topics, 1) = 0)
-      OR (mr1.topics && mr2.topics)
-    )
   LIMIT 1
   FOR UPDATE SKIP LOCKED;
 
-  -- If a match is found, update both requests
   IF match_id IS NOT NULL THEN
     UPDATE match_requests 
     SET matched_with = match_id, 
@@ -117,10 +99,8 @@ BEGIN
     RETURN match_id;
   END IF;
 
-  -- No match found
   RETURN NULL;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Grant permission to authenticated users
 GRANT EXECUTE ON FUNCTION find_match TO authenticated;

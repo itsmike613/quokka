@@ -1,10 +1,5 @@
-const supabase = window.supabase.createClient('https://wshvyvwfgpkprvktvqft.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzaHZ5dndmZ3BrcHJ2a3R2cWZ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA5NzEwNTgsImV4cCI6MjA2NjU0NzA1OH0.lt5V3VzNHxUPskSiIdA9EWAbBhQ5PzWp5PZ5q-ux_XQ');
+const supabase = window.supabase.createClient('https://vmwgwzfvfmehavrbbdhj.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZtd2d3emZ2Zm1laGF2cmJiZGhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA5NzI0NDcsImV4cCI6MjA2NjU0ODQ0N30.xYIoacPAivM-LZgba7qzZeYJn_NyuTnD0Fft5AuJlVE');
 let session, channel, currentMatchRequest;
-
-const topics = {
-  'Sports': ['Basketball', 'Hockey', 'Soccer', 'Swimming'],
-  'Games': ['Call of Duty', 'Valorant', 'Minecraft', 'Roblox']
-};
 
 function toggleAuth() {
   document.getElementById('create-form').classList.toggle('d-none');
@@ -19,14 +14,6 @@ function showPage(pageId) {
 function loadMatchFormSettings() {
   const savedSex = localStorage.getItem('desired_sex') || 'Either';
   document.getElementById('desired-sex').value = savedSex;
-
-  const savedTopics = JSON.parse(localStorage.getItem('selected_topics') || '[]');
-  document.querySelectorAll('.badge').forEach(badge => {
-    if (savedTopics.includes(badge.textContent)) {
-      badge.classList.remove('bg-secondary');
-      badge.classList.add('bg-primary');
-    }
-  });
 }
 
 async function init() {
@@ -98,33 +85,12 @@ document.getElementById('login-form').onsubmit = async e => {
   showPage('match-page');
 };
 
-const topicsContainer = document.getElementById('topics-container');
-Object.entries(topics).forEach(([category, items]) => {
-  const categoryHeader = document.createElement('h5');
-  categoryHeader.textContent = category;
-  topicsContainer.appendChild(categoryHeader);
-  items.forEach(topic => {
-    const badge = document.createElement('span');
-    badge.className = 'badge bg-secondary m-1';
-    badge.textContent = topic;
-    badge.style.cursor = 'pointer';
-    badge.onclick = () => {
-      badge.classList.toggle('bg-secondary');
-      badge.classList.toggle('bg-primary');
-      const selectedTopics = [...document.querySelectorAll('.bg-primary')].map(b => b.textContent);
-      localStorage.setItem('selected_topics', JSON.stringify(selectedTopics));
-    };
-    topicsContainer.appendChild(badge);
-  });
-});
-
 document.getElementById('desired-sex').onchange = () => {
   localStorage.setItem('desired_sex', document.getElementById('desired-sex').value);
 };
 
 document.getElementById('match-button').onclick = async () => {
   const desiredSex = document.getElementById('desired-sex').value;
-  const selectedTopics = [...document.querySelectorAll('.bg-primary')].map(b => b.textContent);
 
   try {
     await supabase.from('match_requests')
@@ -139,7 +105,6 @@ document.getElementById('match-button').onclick = async () => {
     .insert({
       user_id: session.user.id,
       desired_sex: desiredSex,
-      topics: selectedTopics.length ? selectedTopics : null,
       participants: [session.user.id]
     })
     .select();
